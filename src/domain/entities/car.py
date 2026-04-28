@@ -1,129 +1,146 @@
-"""Car Agent."""
+"""Car Agent with A* Pathfinding and Vehicle-like behavior."""
 
 from mesa import Agent
-from src.application.services.graph_service import shortestPath
-from src.domain.entities.traffic_components import Road, Destination, Traffic_Light, PedestrianCrossing, Angel
+from src.application.services.graph_service import a_star_search
+from src.domain.entities.traffic_components import Road, Destination, Traffic_Light, PedestrianCrossing, Angel, Parking
 
 class Car(Agent):
     """
-    Agent that moves using pathfinding.
+    Agent that moves using A* pathfinding on a road graph.
     """
     def __init__(self, unique_id, model, destiny):
         super().__init__(unique_id, model)
-        self.direction = None
         self.destiny = destiny
+        self.path = []
         self.moving = False
-        self.myDestiny = None
-        self.lastNode = None
-        self.lastMove = None
-        self.lastlastMove = None
         self.inDestiny = False
         self.previous_pos = None
+        self.intended_next_move = None
+        self.direction = "None"
+
+    def calculate_path(self):
+        """Calculates a path to the destination using A*."""
+        current_x, current_y = self.pos
+        x_dest, y_dest = self.destiny
+        
+        start_node = (current_y, current_x)
+        goal_node = (y_dest, x_dest)
+        
+        # 1. Ensure goal is in graph
+        if goal_node not in self.model.graph:
+            nodes = list(self.model.graph.keys())
+            if nodes:
+                goal_node = min(nodes, key=lambda n: abs(n[0] - goal_node[0]) + abs(n[1] - goal_node[1]))
+        
+        # 2. Try A*
+        _, path = a_star_search(self.model.graph, start_node, goal_node)
+        
+        # 3. If A* failed to find a path to the goal, find the closest reachable node
+        if len(path) <= 1:
+            # BFS to find reachable set
+            reachable = {start_node}
+            queue = [start_node]
+            while queue:
+                curr = queue.pop(0)
+                for _, neighbor in self.model.graph.get(curr, []):
+                    if neighbor not in reachable:
+                        reachable.add(neighbor)
+                        queue.append(neighbor)
+            
+            # Find closest reachable node to original goal
+            if reachable:
+                best_goal = min(reachable, key=lambda n: abs(n[0] - y_dest) + abs(n[1] - x_dest))
+                if best_goal != start_node:
+                    _, path = a_star_search(self.model.graph, start_node, best_goal)
+
+        if len(path) > 1:
+            # Convert (y, x) back to (x, y) for Mesa grid
+            self.path = [(x, y) for y, x in path]
+            self.path.pop(0) # Remove current position
+        else:
+            self.path = []
 
     def move(self):
-        next_move = None
-        current_x, current_y = self.pos
-        
-        # 1. Arrival Check (Neighborhood Aware)
-        # Check if destiny is in a neighbor cell
-        aroundMe = self.model.grid.get_neighbors(self.pos, moore=False, include_center=False, radius=1)
-        for neighbor in aroundMe:
-            if isinstance(neighbor, Destination) and neighbor.pos == self.destiny:
-                next_move = neighbor.pos
-                if 0 <= next_move[0] < self.model.grid.width and 0 <= next_move[1] < self.model.grid.height:
+        # 1. Arrival Check
+        if self.pos == self.destiny:
+            self.inDestiny = True
+            self.model.schedule.remove(self)
+            return
+
+        # 2. Path Management
+        if not self.path or self.intended_next_move:
+            self.calculate_path()
+
+        if not self.path:
+            # If still no path, we might be stuck or at destination neighborhood
+            aroundMe = self.model.grid.get_neighbors(self.pos, moore=False, include_center=False, radius=1)
+            for neighbor in aroundMe:
+                if isinstance(neighbor, Destination) and neighbor.pos == self.destiny:
+                    next_move = neighbor.pos
                     self.model.grid.move_agent(self, next_move)
                     self.inDestiny = True
                     self.model.schedule.remove(self)
-                return
-
-        # 2. Simple Directional Movement
-        if self.direction in ["Up", "Down", "Left", "Right"]:
-            if self.direction == "Up":
-                next_move = (current_x, current_y + 1)
-            elif self.direction == "Down":
-                next_move = (current_x, current_y - 1)
-            elif self.direction == "Left":
-                next_move = (current_x - 1, current_y)
-            elif self.direction == "Right":
-                next_move = (current_x + 1, current_y)
-        
-        # 3. Intersection Pathfinding
-        elif self.direction == "Intersection":
-            # Recalculate path if none exists
-            if self.myDestiny is None or len(self.myDestiny) == 0:
-                x_dest, y_dest = self.destiny
-                res = shortestPath(self.model.list_of_edges, (current_y, current_x), (y_dest, x_dest))
-                self.myDestiny = res[1]
-                if len(self.myDestiny) > 1:
-                    self.myDestiny.pop(0) # Remove current pos
-                
-            if self.myDestiny:
-                target_y, target_x = self.myDestiny.pop(0)
-                next_move = (target_x, target_y)
-            else:
-                # Random fallback if pathfinding fails completely
-                aroundAgent = self.model.grid.get_neighbors(self.pos, moore=False, include_center=False, radius=1)
-                agentsFront = [agent for agent in aroundAgent if isinstance(agent, Road) and agent.pos != self.previous_pos]
-                if agentsFront:
-                    next_move = self.random.choice(agentsFront).pos
-                else:
                     return
-
-        if next_move is None:
             return
 
-        # 4. Final Movement & Collision Detection
-        if not (0 <= next_move[0] < self.model.grid.width and 0 <= next_move[1] < self.model.grid.height):
-            self.moving = False
-            return
-
-        # Check for blockers (other cars, red lights, etc.)
+        # 3. Determine Next Move
+        next_move = self.path[0]
+        
+        # 4. Collision Detection & Traffic Rules
         cell_contents = self.model.grid.get_cell_list_contents(next_move)
         blockers = [a for a in cell_contents if not isinstance(a, Road)]
         
         can_move = True
-        if blockers:
-            for b in blockers:
-                if isinstance(b, Traffic_Light):
-                    if not b.state: # Red light
+        for b in blockers:
+            if isinstance(b, Traffic_Light):
+                if not b.state: # Red light
+                    # Stay if we're not already in an intersection
+                    if not self._is_at_intersection():
                         can_move = False
                         break
-                elif isinstance(b, PedestrianCrossing):
-                    if b.state not in [None, "Car"]: # Pedestrians crossing
-                        can_move = False
-                        break
-                elif hasattr(b, "moving"): # Another car
-                    if not b.moving:
-                        can_move = False
-                        break
-                    # MultiGrid allows stacking, but for realism we stop
+            elif isinstance(b, PedestrianCrossing):
+                if b.state not in [None, "Car"]:
                     can_move = False
                     break
-                elif isinstance(b, (Destination, Angel)):
-                    pass # We can enter these
-                else:
-                    can_move = False # Buildings, etc.
-                    break
+            elif isinstance(b, Car):
+                # Vehicle ahead
+                can_move = False
+                break
+            elif isinstance(b, (Destination, Angel, Parking)):
+                pass # Non-blocking
+            else:
+                can_move = False # Buildings, obstacles
+                break
 
         if can_move:
             self.previous_pos = self.pos
             self.model.grid.move_agent(self, next_move)
+            self.path.pop(0)
             self.moving = True
-            # Update lastNode for direction guessing if needed
-            self.lastNode = next_move
+            self.intended_next_move = None
+            self._update_direction(next_move)
         else:
             self.moving = False
-            # If we were following a path, put the target back
-            if self.direction == "Intersection" and self.myDestiny is not None:
-                # next_move was (target_x, target_y)
-                self.myDestiny.insert(0, (next_move[1], next_move[0]))
-        
-        self.lastlastMove = self.lastMove
-        self.lastMove = next_move
+            self.intended_next_move = next_move # Wait for this cell to clear
+
+    def _is_at_intersection(self):
+        """Checks if the current cell is an intersection or has a traffic light."""
+        current_cell_agents = self.model.grid.get_cell_list_contents(self.pos)
+        for a in current_cell_agents:
+            if isinstance(a, Road) and a.direction == "Intersection":
+                return True
+            if isinstance(a, Traffic_Light):
+                return True
+        return False
+
+    def _update_direction(self, next_pos):
+        """Updates the direction string for visuals."""
+        curr_x, curr_y = self.pos
+        next_x, next_y = next_pos
+        if next_x > curr_x: self.direction = "Right"
+        elif next_x < curr_x: self.direction = "Left"
+        elif next_y > curr_y: self.direction = "Up"
+        elif next_y < curr_y: self.direction = "Down"
 
     def step(self):
-        currentIn = self.model.grid.get_neighbors(self.pos, moore=False, include_center=True, radius=0)
-        roads = [agent for agent in currentIn if isinstance(agent, Road)]
-        if roads:
-            self.direction = roads[0].direction
         self.move()

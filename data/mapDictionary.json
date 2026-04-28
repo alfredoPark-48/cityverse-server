@@ -13,5 +13,9 @@
   "+": "Intersection",
   "A": "Angel",
   "E": "Building",
-  "P": "Parking"
+  "P": "Parking",
+  "1": "Up-Intersection",
+  "2": "Down-Intersection",
+  "3": "Left-Intersection",
+  "4": "Right-Intersection"
 }

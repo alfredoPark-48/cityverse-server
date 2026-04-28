@@ -80,3 +80,11 @@ class SideWalk(Agent):
 
     def step(self):
         pass
+
+class Parking(Agent):
+    """Parking agent. Areas where cars can park or drive through."""
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+
+    def step(self):
+        pass

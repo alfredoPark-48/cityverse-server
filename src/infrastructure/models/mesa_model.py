@@ -24,7 +24,7 @@ class CityModel(Model):
             dataDictionary = json.load(f)
             
         self.grid_file = grid_file or GRID_FILE_PATH
-        self.list_of_edges = self.build_edgesList()
+        self.list_of_edges, self.graph = self.build_graph()
         self.traffic_lights = []
         self.num_agents = 30
         self.running = True
@@ -43,8 +43,10 @@ class CityModel(Model):
 
             for r, row in enumerate(lines):
                 for c, col in enumerate(row.strip()):
-                    if col in ["v", "^", ">", "<", "+"]:
-                        agent = Road(f"r_{r*self.width+c}", self, dataDictionary[col])
+                    if col in ["v", "^", ">", "<", "+", "1", "2", "3", "4"]:
+                        dir_map = {"1": "Up", "2": "Down", "3": "Left", "4": "Right"}
+                        road_dir = dir_map.get(col, dataDictionary.get(col, "Intersection"))
+                        agent = Road(f"r_{r*self.width+c}", self, road_dir)
                         self.grid.place_agent(agent, (c, self.height - r - 1))
                         if col in ["v", "^", ">", "<"]:
                             positions_temp.append((c, self.height - r - 1))
@@ -73,7 +75,16 @@ class CityModel(Model):
                         self.grid.place_agent(agent, (c, self.height - r - 1))
                         destinys_temp.append((c, self.height - r - 1))
 
-                    elif col in ["B", "E", "P"]:
+                    elif col == "P":
+                        # Place a Road under the Parking for direction context
+                        road_agent = Road(f"r_{r*self.width+c}", self, "Intersection")
+                        self.grid.place_agent(road_agent, (c, self.height - r - 1))
+                        
+                        agent = Parking(f"pk_{r*self.width+c}", self)
+                        self.grid.place_agent(agent, (c, self.height - r - 1))
+                        pedPos_temp.append((c, self.height - r - 1))
+
+                    elif col in ["B", "E"]:
                         agent = SideWalk(f"sw_{r*self.width+c}", self)
                         self.grid.place_agent(agent, (c, self.height - r - 1))
                         pedPos_temp.append((c, self.height - r - 1))
@@ -114,7 +125,7 @@ class CityModel(Model):
             self.schedule.add(b)
             self.grid.place_agent(b, pos)
 
-    def build_edgesList(self):
+    def build_graph(self):
         # Read the grid into a matrix
         with open(self.grid_file or GRID_FILE_PATH, 'r') as f:
             matrix_inverted = [list(line.strip()) for line in f]
@@ -125,6 +136,7 @@ class CityModel(Model):
         rows = len(matrix)
         cols = len(matrix[0])
 
+        graph_dict = {}
         edges_list = []
         
         # Directions mapping: what is the allowed move from a cell at (x, y) with char 'c'
@@ -132,10 +144,11 @@ class CityModel(Model):
         for y in range(rows):
             for x in range(cols):
                 c = matrix[y][x]
-                if c not in ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P"]:
+                if c not in ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P", "1", "2", "3", "4"]:
                     continue
                 
                 # Potential neighbors (Up, Down, Left, Right)
+                # Note: x, y is (col, row)
                 neighbors = [
                     (x, y + 1, "^"), # Up
                     (x, y - 1, "v"), # Down
@@ -143,31 +156,39 @@ class CityModel(Model):
                     (x + 1, y, ">")  # Right
                 ]
                 
+                source = (y, x)
+                if source not in graph_dict:
+                    graph_dict[source] = []
+
                 for nx, ny, move_dir in neighbors:
                     if not (0 <= nx < cols and 0 <= ny < rows):
                         continue
                     
                     nc = matrix[ny][nx]
-                    if nc not in ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P"]:
+                    if nc not in ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P", "1", "2", "3", "4"]:
                         continue
 
+                    # Directions mapping for comparison
+                    dir_symbols = {"^": "1", "v": "2", "<": "3", ">": "4"}
+                    
                     # Can we move from (x,y) to (nx,ny)?
                     can_move = False
                     
-                    # Intersections, lights, crossings, Roundabout, and Destinations
-                    # can be entered from anywhere that points to them.
-                    # Destinations and the Roundabout act like intersections for graph purposes.
-                    if c in ["+", "S", "s", "Z", "z", "A", "D", "P"]:
-                        if nc in ["+", "S", "s", "Z", "z", "A", "D", "P"] or nc == move_dir:
+                    # Intersections, lights, crossings, and special cells
+                    if c in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"]:
+                        if nc in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"] or nc == move_dir or nc == dir_symbols.get(move_dir):
                             can_move = True
-                    elif c == move_dir:
-                        if nc in ["+", "S", "s", "Z", "z", "A", "D", "P"] or nc == move_dir:
+                    elif c == move_dir or c == dir_symbols.get(move_dir):
+                        if nc in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"] or nc == move_dir or nc == dir_symbols.get(move_dir):
                             can_move = True
                     
                     if can_move:
-                        edges_list.append(((y, x), (ny, nx), 1))
+                        target = (ny, nx)
+                        cost = 1.0
+                        graph_dict[source].append((cost, target))
+                        edges_list.append((source, target, cost))
 
-        return edges_list
+        return edges_list, graph_dict
 
     def step(self):
         if self.schedule.steps % 15 == 0:
