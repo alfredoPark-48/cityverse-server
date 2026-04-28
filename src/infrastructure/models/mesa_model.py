@@ -24,7 +24,7 @@ class CityModel(Model):
             dataDictionary = json.load(f)
             
         self.grid_file = grid_file or GRID_FILE_PATH
-        self.list_of_edges, self.graph = self.build_graph()
+        self.list_of_edges, self.road_graph, self.ped_graph = self.build_graphs()
         self.traffic_lights = []
         self.num_agents = 30
         self.running = True
@@ -101,6 +101,7 @@ class CityModel(Model):
                             agent.horizontal = True
                         self.grid.place_agent(agent, (c, self.height - r - 1))
                         self.schedule.add(agent)
+                        pedPos_temp.append((c, self.height - r - 1))
 
         for i in range(self.num_agents):
             if destinys_temp and positions_temp:
@@ -113,8 +114,9 @@ class CityModel(Model):
                 self.grid.place_agent(a, pos)
 
         for i in range(self.num_agents):
-            a = Pedestrian(i+2000, self)
-            if pedPos_temp:
+            if destinys_temp and pedPos_temp:
+                destpos = self.random.choice(destinys_temp)
+                a = Pedestrian(i+2000, self, destpos)
                 pos = self.random.choice(pedPos_temp)
                 self.schedule.add(a)
                 self.grid.place_agent(a, pos)
@@ -125,70 +127,66 @@ class CityModel(Model):
             self.schedule.add(b)
             self.grid.place_agent(b, pos)
 
-    def build_graph(self):
+    def build_graphs(self):
         # Read the grid into a matrix
         with open(self.grid_file or GRID_FILE_PATH, 'r') as f:
             matrix_inverted = [list(line.strip()) for line in f]
         
-        # Convert to a coordinate system where (0,0) is bottom-left
-        # matrix[y][x] where y is row from bottom, x is col
         matrix = list(reversed(matrix_inverted))
         rows = len(matrix)
         cols = len(matrix[0])
 
-        graph_dict = {}
-        edges_list = []
+        road_graph = {}
+        ped_graph = {}
+        road_edges = []
         
-        # Directions mapping: what is the allowed move from a cell at (x, y) with char 'c'
-        # to a neighbor at (nx, ny)?
+        road_chars = ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P", "1", "2", "3", "4"]
+        ped_chars = ["B", "E", "Z", "z", "D", "S", "s", "P"]
+
         for y in range(rows):
             for x in range(cols):
                 c = matrix[y][x]
-                if c not in ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P", "1", "2", "3", "4"]:
-                    continue
+                source = (y, x)
                 
-                # Potential neighbors (Up, Down, Left, Right)
-                # Note: x, y is (col, row)
+                # Potential neighbors
                 neighbors = [
-                    (x, y + 1, "^"), # Up
-                    (x, y - 1, "v"), # Down
-                    (x - 1, y, "<"), # Left
-                    (x + 1, y, ">")  # Right
+                    (x, y + 1, "^"), (x, y - 1, "v"),
+                    (x - 1, y, "<"), (x + 1, y, ">")
                 ]
                 
-                source = (y, x)
-                if source not in graph_dict:
-                    graph_dict[source] = []
+                # --- Road Graph ---
+                if c in road_chars:
+                    if source not in road_graph: road_graph[source] = []
+                    for nx, ny, move_dir in neighbors:
+                        if not (0 <= nx < cols and 0 <= ny < rows): continue
+                        nc = matrix[ny][nx]
+                        if nc not in road_chars: continue
+                        
+                        dir_symbols = {"^": "1", "v": "2", "<": "3", ">": "4"}
+                        can_move = False
+                        if c in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"]:
+                            if nc in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"] or nc == move_dir or nc == dir_symbols.get(move_dir):
+                                can_move = True
+                        elif c == move_dir or c == dir_symbols.get(move_dir):
+                            if nc in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"] or nc == move_dir or nc == dir_symbols.get(move_dir):
+                                can_move = True
+                        
+                        if can_move:
+                            target = (ny, nx)
+                            road_graph[source].append((1.0, target))
+                            road_edges.append((source, target, 1.0))
 
-                for nx, ny, move_dir in neighbors:
-                    if not (0 <= nx < cols and 0 <= ny < rows):
-                        continue
-                    
-                    nc = matrix[ny][nx]
-                    if nc not in ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P", "1", "2", "3", "4"]:
-                        continue
+                # --- Pedestrian Graph ---
+                if c in ped_chars:
+                    if source not in ped_graph: ped_graph[source] = []
+                    for nx, ny, _ in neighbors:
+                        if not (0 <= nx < cols and 0 <= ny < rows): continue
+                        nc = matrix[ny][nx]
+                        if nc in ped_chars:
+                            target = (ny, nx)
+                            ped_graph[source].append((1.0, target))
 
-                    # Directions mapping for comparison
-                    dir_symbols = {"^": "1", "v": "2", "<": "3", ">": "4"}
-                    
-                    # Can we move from (x,y) to (nx,ny)?
-                    can_move = False
-                    
-                    # Intersections, lights, crossings, and special cells
-                    if c in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"]:
-                        if nc in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"] or nc == move_dir or nc == dir_symbols.get(move_dir):
-                            can_move = True
-                    elif c == move_dir or c == dir_symbols.get(move_dir):
-                        if nc in ["+", "S", "s", "Z", "z", "A", "D", "P", "1", "2", "3", "4"] or nc == move_dir or nc == dir_symbols.get(move_dir):
-                            can_move = True
-                    
-                    if can_move:
-                        target = (ny, nx)
-                        cost = 1.0
-                        graph_dict[source].append((cost, target))
-                        edges_list.append((source, target, cost))
-
-        return edges_list, graph_dict
+        return road_edges, road_graph, ped_graph
 
     def step(self):
         if self.schedule.steps % 15 == 0:

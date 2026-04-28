@@ -27,13 +27,13 @@ class Car(Agent):
         goal_node = (y_dest, x_dest)
         
         # 1. Ensure goal is in graph
-        if goal_node not in self.model.graph:
-            nodes = list(self.model.graph.keys())
+        if goal_node not in self.model.road_graph:
+            nodes = list(self.model.road_graph.keys())
             if nodes:
                 goal_node = min(nodes, key=lambda n: abs(n[0] - goal_node[0]) + abs(n[1] - goal_node[1]))
         
         # 2. Try A*
-        _, path = a_star_search(self.model.graph, start_node, goal_node)
+        _, path = a_star_search(self.model.road_graph, start_node, goal_node)
         
         # 3. If A* failed to find a path to the goal, find the closest reachable node
         if len(path) <= 1:
@@ -42,7 +42,7 @@ class Car(Agent):
             queue = [start_node]
             while queue:
                 curr = queue.pop(0)
-                for _, neighbor in self.model.graph.get(curr, []):
+                for _, neighbor in self.model.road_graph.get(curr, []):
                     if neighbor not in reachable:
                         reachable.add(neighbor)
                         queue.append(neighbor)
@@ -51,7 +51,7 @@ class Car(Agent):
             if reachable:
                 best_goal = min(reachable, key=lambda n: abs(n[0] - y_dest) + abs(n[1] - x_dest))
                 if best_goal != start_node:
-                    _, path = a_star_search(self.model.graph, start_node, best_goal)
+                    _, path = a_star_search(self.model.road_graph, start_node, best_goal)
 
         if len(path) > 1:
             # Convert (y, x) back to (x, y) for Mesa grid
