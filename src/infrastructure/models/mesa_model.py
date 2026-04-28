@@ -1,147 +1,241 @@
-"""Mesa CityModel – the core simulation model."""
+"""Mesa CityModel – the core simulation model (Legacy Logic)."""
 
-from __future__ import annotations
-
-import random
-
-import mesa
+from mesa import Model
 from mesa.time import RandomActivation
+from mesa.space import MultiGrid
+import json
+import os
 
-from src.application.services.pathfinding_service import PathfindingService
-from src.domain.entities.building import Building
-from src.domain.entities.car_agent import CarAgent
-from src.domain.entities.pedestrian_agent import PedestrianAgent
-from src.domain.entities.traffic_light import TrafficLight
-from src.domain.value_objects.grid_cell import GridCell
-from src.domain.value_objects.position import Position
-from src.infrastructure.persistence.grid_repository import GridData, GridRepository
-from src.shared.config import GRID_FILE_PATH, MAX_CARS, MAX_PEDESTRIANS
+from src.domain.entities import (
+    Car, Pedestrian, Bus, Traffic_Light, PedestrianCrossing,
+    Destination, Obstacle, Angel, Road, SideWalk
+)
+from src.shared.config import GRID_FILE_PATH
 
-
-class CityModel(mesa.Model):
-    """Agent-based city traffic simulation model."""
-
+class CityModel(Model):
+    """
+    Creates a new model with random agents using legacy Multiagentes logic.
+    """
     def __init__(self, grid_file: str | None = None) -> None:
         super().__init__()
-        self.schedule = RandomActivation(self)
+        
+        map_dict_path = os.path.join(os.path.dirname(GRID_FILE_PATH), "mapDictionary.json")
+        with open(map_dict_path, "r") as f:
+            dataDictionary = json.load(f)
+            
+        self.grid_file = grid_file or GRID_FILE_PATH
+        self.list_of_edges = self.build_edgesList()
+        self.traffic_lights = []
+        self.num_agents = 30
+        self.running = True
+        
+        positions_temp = []
+        pedPos_temp = []
+        destinys_temp = []
 
-        repo = GridRepository()
-        self.grid_data: GridData = repo.load(grid_file or GRID_FILE_PATH)
+        with open(self.grid_file) as baseFile:
+            lines = baseFile.readlines()
+            self.width = len(lines[0].strip())
+            self.height = len(lines)
 
-        # Grid accessors
-        self.grid: list[list[GridCell]] = self.grid_data.grid
-        self.grid_width: int = self.grid_data.width
-        self.grid_height: int = self.grid_data.height
+            self.grid = MultiGrid(self.width, self.height, torus=False)
+            self.schedule = RandomActivation(self)
 
-        # Domain objects
-        self.traffic_lights: list[TrafficLight] = self.grid_data.traffic_lights
-        self.buildings: list[Building] = self.grid_data.buildings
-        self.roundabout_cells: list[Position] = self.grid_data.roundabout_cells
-        self.car_spawns: list[Position] = self.grid_data.car_spawns
-        self.ped_spawns: list[Position] = self.grid_data.ped_spawns
+            for r, row in enumerate(lines):
+                for c, col in enumerate(row.strip()):
+                    if col in ["v", "^", ">", "<", "+"]:
+                        agent = Road(f"r_{r*self.width+c}", self, dataDictionary[col])
+                        self.grid.place_agent(agent, (c, self.height - r - 1))
+                        if col in ["v", "^", ">", "<"]:
+                            positions_temp.append((c, self.height - r - 1))
 
-        # Simulation state
-        self.max_cars: int = MAX_CARS
-        self.max_peds: int = MAX_PEDESTRIANS
-        self.tick: int = 0
-        self._next_id: int = 0
+                    elif col in ["S", "s"]:
+                        # Place a Road under the Traffic Light for direction context
+                        road_agent = Road(f"r_{r*self.width+c}", self, "Intersection")
+                        self.grid.place_agent(road_agent, (c, self.height - r - 1))
+                        
+                        agent = Traffic_Light(f"tl_{r*self.width+c}", self, False if col == "S" else True, int(dataDictionary[col]))
+                        self.grid.place_agent(agent, (c, self.height - r - 1))
+                        self.schedule.add(agent)
+                        self.traffic_lights.append(agent)
 
-        # Pathfinding service
-        self.pathfinder = PathfindingService(
-            self.grid, self.grid_width, self.grid_height
-        )
+                    elif col == "#":
+                        agent = Obstacle(f"ob_{r*self.width+c}", self)
+                        self.grid.place_agent(agent, (c, self.height - r - 1))
 
-        # Traffic light lookup by position for fast queries
-        self._light_map: dict[tuple[int, int], TrafficLight] = {
-            (tl.position.x, tl.position.y): tl for tl in self.traffic_lights
-        }
+                    elif col == "A":
+                        agent = Angel(f"ob_{r*self.width+c}", self)
+                        self.grid.place_agent(agent, (c, self.height - r - 1))
 
-        # Initial spawn
-        self._spawn_agents()
+                    elif col == "D":
+                        agent = Destination(f"d_{r*self.width+c}", self)
+                        self.schedule.add(agent)
+                        self.grid.place_agent(agent, (c, self.height - r - 1))
+                        destinys_temp.append((c, self.height - r - 1))
 
-    def _get_next_id(self) -> int:
-        """Generate a unique agent ID."""
-        self._next_id += 1
-        return self._next_id
+                    elif col in ["B", "E", "P"]:
+                        agent = SideWalk(f"sw_{r*self.width+c}", self)
+                        self.grid.place_agent(agent, (c, self.height - r - 1))
+                        pedPos_temp.append((c, self.height - r - 1))
 
-    def _spawn_agents(self) -> None:
-        """Spawn initial cars and pedestrians up to limits."""
-        self._spawn_cars()
-        self._spawn_pedestrians()
+                    elif col in ["Z", "z"]:
+                        # Place a Road under the Pedestrian Crossing
+                        road_agent = Road(f"r_{r*self.width+c}", self, "Intersection")
+                        self.grid.place_agent(road_agent, (c, self.height - r - 1))
+                        
+                        agent = PedestrianCrossing(f"pc_{r*self.width+c}", self)
+                        if col == "Z":
+                            agent.vertical = True
+                        else:
+                            agent.horizontal = True
+                        self.grid.place_agent(agent, (c, self.height - r - 1))
+                        self.schedule.add(agent)
 
-    def _spawn_cars(self) -> None:
-        """Spawn cars up to max_cars at random car spawn points."""
-        current_cars = sum(
-            1 for a in self.schedule.agents if isinstance(a, CarAgent)
-        )
-        while current_cars < self.max_cars and self.car_spawns:
-            spawn = random.choice(self.car_spawns)
-            car = CarAgent(self._get_next_id(), self, spawn)
-            self.schedule.add(car)
-            current_cars += 1
+        for i in range(self.num_agents):
+            if destinys_temp and positions_temp:
+                destpos = self.random.choice(destinys_temp)
+                a = Car(i+1000, self, destpos)
+                pos = self.random.choice(positions_temp)
+                while any(isinstance(agent, Car) for agent in self.grid.get_cell_list_contents(pos)):
+                    pos = self.random.choice(positions_temp)
+                self.schedule.add(a)
+                self.grid.place_agent(a, pos)
 
-    def _spawn_pedestrians(self) -> None:
-        """Spawn pedestrians up to max_peds at random ped spawn points."""
-        current_peds = sum(
-            1 for a in self.schedule.agents if isinstance(a, PedestrianAgent)
-        )
-        while current_peds < self.max_peds and self.ped_spawns:
-            spawn = random.choice(self.ped_spawns)
-            ped = PedestrianAgent(self._get_next_id(), self, spawn)
-            self.schedule.add(ped)
-            current_peds += 1
+        for i in range(self.num_agents):
+            a = Pedestrian(i+2000, self)
+            if pedPos_temp:
+                pos = self.random.choice(pedPos_temp)
+                self.schedule.add(a)
+                self.grid.place_agent(a, pos)
+                
+        if positions_temp:
+            b = Bus(3000, self)
+            pos = self.random.choice(positions_temp)
+            self.schedule.add(b)
+            self.grid.place_agent(b, pos)
 
-    def get_cell(self, x: int, y: int) -> GridCell | None:
-        """Get a grid cell by coordinates, or None if out of bounds."""
-        if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
-            return self.grid[y][x]
-        return None
+    def build_edgesList(self):
+        # Read the grid into a matrix
+        with open(self.grid_file or GRID_FILE_PATH, 'r') as f:
+            matrix_inverted = [list(line.strip()) for line in f]
+        
+        # Convert to a coordinate system where (0,0) is bottom-left
+        # matrix[y][x] where y is row from bottom, x is col
+        matrix = list(reversed(matrix_inverted))
+        rows = len(matrix)
+        cols = len(matrix[0])
 
-    def get_traffic_light_at(self, x: int, y: int) -> TrafficLight | None:
-        """Get traffic light at the given position, if any."""
-        return self._light_map.get((x, y))
+        edges_list = []
+        
+        # Directions mapping: what is the allowed move from a cell at (x, y) with char 'c'
+        # to a neighbor at (nx, ny)?
+        for y in range(rows):
+            for x in range(cols):
+                c = matrix[y][x]
+                if c not in ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P"]:
+                    continue
+                
+                # Potential neighbors (Up, Down, Left, Right)
+                neighbors = [
+                    (x, y + 1, "^"), # Up
+                    (x, y - 1, "v"), # Down
+                    (x - 1, y, "<"), # Left
+                    (x + 1, y, ">")  # Right
+                ]
+                
+                for nx, ny, move_dir in neighbors:
+                    if not (0 <= nx < cols and 0 <= ny < rows):
+                        continue
+                    
+                    nc = matrix[ny][nx]
+                    if nc not in ["v", "^", ">", "<", "+", "S", "s", "Z", "z", "D", "A", "P"]:
+                        continue
 
-    def step(self) -> None:
-        """Advance the simulation by one tick."""
-        self.tick += 1
+                    # Can we move from (x,y) to (nx,ny)?
+                    can_move = False
+                    
+                    # Intersections, lights, crossings, Roundabout, and Destinations
+                    # can be entered from anywhere that points to them.
+                    # Destinations and the Roundabout act like intersections for graph purposes.
+                    if c in ["+", "S", "s", "Z", "z", "A", "D", "P"]:
+                        if nc in ["+", "S", "s", "Z", "z", "A", "D", "P"] or nc == move_dir:
+                            can_move = True
+                    elif c == move_dir:
+                        if nc in ["+", "S", "s", "Z", "z", "A", "D", "P"] or nc == move_dir:
+                            can_move = True
+                    
+                    if can_move:
+                        edges_list.append(((y, x), (ny, nx), 1))
 
-        # Update traffic lights
-        for light in self.traffic_lights:
-            light.update()
+        return edges_list
 
-        # Step all agents
+    def step(self):
+        if self.schedule.steps % 15 == 0:
+            for agent in self.traffic_lights:
+                agent.state = not agent.state
         self.schedule.step()
 
-        # Respawn agents if below limits
-        self._spawn_cars()
-        self._spawn_pedestrians()
-
     def get_state_snapshot(self) -> dict:
-        """Return full simulation state for API serialization."""
         agents_data = []
-        for agent in self.schedule.agents:
-            if hasattr(agent, "to_dict"):
-                agents_data.append(agent.to_dict())
+        lights_data = []
 
-        lights_data = [tl.to_dict() for tl in self.traffic_lights]
+        for agent in self.schedule.agents:
+            # We map legacy agent state to the frontend's expected schema
+            if isinstance(agent, Car):
+                agents_data.append({
+                    "id": agent.unique_id,
+                    "x": agent.pos[0] if agent.pos else -1,
+                    "y": agent.pos[1] if agent.pos else -1,
+                    "type": "CarAgent",
+                    "has_arrived": agent.inDestiny,
+                    "parked": agent.inDestiny,
+                    "waiting": not agent.moving,
+                    "destination": {"x": agent.destiny[0], "y": agent.destiny[1]} if agent.destiny else None
+                })
+            elif isinstance(agent, Pedestrian):
+                agents_data.append({
+                    "id": agent.unique_id,
+                    "x": agent.pos[0] if agent.pos else -1,
+                    "y": agent.pos[1] if agent.pos else -1,
+                    "type": "PedestrianAgent",
+                    "has_arrived": agent.indestiny,
+                    "crossing": False, 
+                    "waiting": False,
+                    "despawned": agent.indestiny,
+                    "destination": None
+                })
+            elif isinstance(agent, Bus):
+                agents_data.append({
+                    "id": agent.unique_id,
+                    "x": agent.pos[0] if agent.pos else -1,
+                    "y": agent.pos[1] if agent.pos else -1,
+                    "type": "BusAgent",
+                    "has_arrived": False,
+                    "waiting": not agent.moving,
+                    "route_index": 0,
+                    "destination": None
+                })
+            elif isinstance(agent, Traffic_Light):
+                lights_data.append({
+                    "id": agent.unique_id,
+                    "x": agent.pos[0] if agent.pos else -1,
+                    "y": agent.pos[1] if agent.pos else -1,
+                    "direction": "N", # Frontend doesn't care
+                    "state": "green" if agent.state else "red",
+                    "timer": agent.timeToChange
+                })
+
+        # Load grid for frontend overlay
+        with open(self.grid_file) as f:
+            grid_lines = [list(line.strip()) for line in f.readlines()]
+            # Original project grid y is flipped
+            grid_lines.reverse()
 
         return {
-            "tick": self.tick,
+            "tick": self.schedule.steps,
             "agents": agents_data,
             "traffic_lights": lights_data,
-            "grid_width": self.grid_width,
-            "grid_height": self.grid_height,
-            "grid": [
-                [cell.raw_char for cell in row]
-                for row in self.grid
-            ],
+            "grid_width": self.width,
+            "grid_height": self.height,
+            "grid": grid_lines
         }
-
-    def __repr__(self) -> str:
-        return (
-            f"CityModel(grid={self.grid_width}x{self.grid_height}, "
-            f"lights={len(self.traffic_lights)}, "
-            f"buildings={len(self.buildings)}, "
-            f"agents={len(self.schedule.agents)}, "
-            f"tick={self.tick})"
-        )

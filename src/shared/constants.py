@@ -31,23 +31,21 @@ CHAR_TO_CELL_TYPE: dict[str, CellType] = {
     "^": CellType.ROAD,
     ">": CellType.ROAD,
     "<": CellType.ROAD,
-    "s": CellType.SIDEWALK,
-    "c": CellType.CROSSWALK,
-    "B": CellType.BUILDING,
-    "D": CellType.TRAFFIC_LIGHT,
-    "U": CellType.TRAFFIC_LIGHT,
-    "R": CellType.TRAFFIC_LIGHT,
-    "L": CellType.TRAFFIC_LIGHT,
-    "O": CellType.ROUNDABOUT,
-    "P": CellType.PARKING,
-    ".": CellType.GRASS,
-    "#": CellType.EMPTY,
+    "+": CellType.ROAD, # Intersection
+    "B": CellType.SIDEWALK,
+    "S": CellType.TRAFFIC_LIGHT, # Red
+    "s": CellType.TRAFFIC_LIGHT, # Green
+    "#": CellType.BUILDING, # Obstacle
+    "D": CellType.BUILDING, # Destination
+    "A": CellType.ROUNDABOUT, # Angel
+    "Z": CellType.CROSSWALK,
+    "z": CellType.CROSSWALK,
 }
 
 # Characters that represent directional roads
 ROAD_DIRECTION_CHARS: set[str] = {"v", "^", ">", "<"}
 
-# Traffic light direction characters → direction name
+# Traffic light direction characters → direction name (Legacy from city_grid, kept for compatibility if needed)
 TRAFFIC_LIGHT_DIRECTION: dict[str, str] = {
     "D": "S",  # Down → South-facing
     "U": "N",  # Up → North-facing
