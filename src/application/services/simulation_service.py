@@ -39,6 +39,7 @@ class SimulationService:
 
         active_cars   = [c for c in cars if not c.inDestiny]
         waiting_cars  = [c for c in active_cars if not c.moving]
+        waiting_pedestrians = [p for p in pedestrians if not p.moving]
 
         return {
             "tick":                 self._model.schedule.steps,
@@ -46,7 +47,8 @@ class SimulationService:
             "parked_cars":          self._model.total_parked_cars,
             "waiting_cars":         len(waiting_cars),
             "active_pedestrians":   len(pedestrians),
-            "waiting_pedestrians":  0,
+            "arrived_pedestrians":  self._model.total_parked_peds,
+            "waiting_pedestrians":  len(waiting_pedestrians),
             "active_buses":         len(buses),
             "total_traffic_lights": len(lights),
         }

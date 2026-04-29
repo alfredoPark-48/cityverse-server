@@ -144,7 +144,6 @@ class CityModel(Model):
                         elif col == "H":
                             agent = Home(f"hm_{r * self.width + c}", self)
                             self.grid.place_agent(agent, (c, self.height - r - 1))
-                            self.destinys_temp.append((c, self.height - r - 1))
                         elif col == "c":
                             agent = CarSpawn(f"gs_{r * self.width + c}", self)
                             self.grid.place_agent(agent, (c, self.height - r - 1))
@@ -210,7 +209,7 @@ class CityModel(Model):
             "L",
             "c",
         ]
-        ped_chars = ["S", "X", "x", "D", "T", "t", "P", "p"]
+        ped_chars = ["S", "X", "x", "D", "T", "t", "P", "p", "c"]
 
         for y in range(rows):
             for x in range(cols):
@@ -385,7 +384,7 @@ class CityModel(Model):
                         "type": "PedestrianAgent",
                         "has_arrived": agent.indestiny,
                         "crossing": False,
-                        "waiting": False,
+                        "waiting": not agent.moving,
                         "despawned": agent.indestiny,
                         "destination": None,
                     }
@@ -428,4 +427,6 @@ class CityModel(Model):
             "grid_width": self.width,
             "grid_height": self.height,
             "grid": grid_lines,
+            "total_parked_cars": self.total_parked_cars,
+            "total_parked_peds": self.total_parked_peds,
         }

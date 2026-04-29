@@ -283,6 +283,7 @@
       align-items: center;
       justify-content: center;
     }
+
     .cell-vegetation::after {
       content: "🌳";
       font-size: 10px;
@@ -296,6 +297,7 @@
       align-items: center;
       justify-content: center;
     }
+
     .cell-water::after {
       content: "💧";
       font-size: 10px;
@@ -316,6 +318,7 @@
       border: 1px solid #1e293b;
       position: relative;
     }
+
     .cell-car-spawn::before {
       content: "CS";
       font-size: 8px;
@@ -323,7 +326,8 @@
       font-weight: bold;
       opacity: 0.5;
       position: absolute;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       display: flex;
       width: 100%;
       height: 100%;
@@ -336,6 +340,7 @@
       border: 1px solid #1e293b;
       position: relative;
     }
+
     .cell-ped-spawn::before {
       content: "PS";
       font-size: 8px;
@@ -343,7 +348,8 @@
       font-weight: bold;
       opacity: 0.5;
       position: absolute;
-      top: 0; left: 0;
+      top: 0;
+      left: 0;
       display: flex;
       width: 100%;
       height: 100%;
@@ -530,13 +536,25 @@
     }
 
     @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
     }
 
     @keyframes fadeOut {
-      from { opacity: 1; }
-      to { opacity: 0; }
+      from {
+        opacity: 1;
+      }
+
+      to {
+        opacity: 0;
+      }
     }
   </style>
 </head>
@@ -606,6 +624,11 @@
         <div class="stat-label">Pedestrians</div>
       </div>
       <div class="stat-card">
+        <div class="stat-icon">🏁</div>
+        <div class="stat-value" id="arrivedPedCount">0</div>
+        <div class="stat-label">Arrived Peds</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-icon">⏳</div>
         <div class="stat-value" id="waitingCount">0</div>
         <div class="stat-label">Waiting</div>
@@ -646,6 +669,10 @@
       <div class="legend-item">
         <div class="legend-swatch cell-ped-waiting"></div>
         Ped (waiting)
+      </div>
+      <div class="legend-item">
+        <span>🏁</span>
+        Arrived Pedestrian
       </div>
       <div class="legend-item">
         <div class="legend-swatch cell-road"></div>
@@ -867,6 +894,8 @@
       document.getElementById("parkedCount").textContent = stats.parked_cars;
       document.getElementById("pedCount").textContent =
         stats.active_pedestrians;
+      document.getElementById("arrivedPedCount").textContent =
+        stats.arrived_pedestrians;
       document.getElementById("busCount").textContent =
         stats.active_buses || 0;
       document.getElementById("waitingCount").textContent =
@@ -899,7 +928,7 @@
     async function fetchConfig() {
       try {
         const config = await apiFetch(`${API_URL}/config`);
-        
+
         document.getElementById("carTarget").max = config.max_cars;
         document.getElementById("pedTarget").max = config.max_peds;
         document.getElementById("busTarget").max = config.max_buses;

@@ -92,7 +92,9 @@ class Pedestrian(Agent):
             next_move = self.path[0]
         else:
             # Fallback: if adjacent to destiny
-            dist = abs(self.pos[0] - self.destiny[0]) + abs(self.pos[1] - self.destiny[1])
+            dist = abs(self.pos[0] - self.destiny[0]) + abs(
+                self.pos[1] - self.destiny[1]
+            )
             if dist == 1:
                 next_move = self.destiny
             else:
