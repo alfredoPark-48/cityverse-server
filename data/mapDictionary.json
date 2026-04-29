@@ -18,5 +18,9 @@
   "P": "Parking",
   "L": "Lot",
   "p": "Pedestrian Spawn",
-  "c": "Car Spawn"
+  "c": "Car Spawn",
+  "1": "Route 1 Stop",
+  "2": "Route 2 Stop",
+  "3": "Route 3 Stop",
+  "4": "Route 4 Stop"
 }

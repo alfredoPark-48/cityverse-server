@@ -5,6 +5,7 @@ from mesa.time import RandomActivation
 from mesa.space import MultiGrid
 import json
 import os
+import uuid
 
 from src.domain.entities import (
     Car,
@@ -56,16 +57,24 @@ class CityModel(Model):
         # Dynamic Targets
         self.target_cars = 30
         self.target_peds = 30
-        self.target_buses = 1
+        self.target_buses = 4
         
         # Cumulative stats
         self.total_parked_cars = 0
         self.total_parked_peds = 0
         
-        # Capacity limits (will be calculated after grid parsing)
+        # Bus Route Data (populated during grid parsing)
+        self.bus_routes = {
+            "1": [],
+            "2": [],
+            "3": [],
+            "4": []
+        }
+        
+        # Capacity limits
         self.max_cars = 100
-        self.max_peds = 100
-        self.max_buses = 5
+        self.max_peds = 250
+        self.max_buses = 16
 
         self.positions_temp = []
         self.pedPos_temp = []
@@ -73,6 +82,15 @@ class CityModel(Model):
         self.parking_temp = []
         self.car_spawns_temp = []
         self.ped_spawns_temp = []
+
+        # Advanced Metrics Engine
+        self.metrics = {
+            "total_passengers": 0,
+            "frustrated_pedestrians": 0,
+            "near_misses": 0,
+            "completed_trips": 0,
+            "avg_bus_occupancy": 0
+        }
 
         try:
             with open(self.grid_file) as baseFile:
@@ -88,11 +106,14 @@ class CityModel(Model):
 
                 for r, row in enumerate(lines):
                     for c, col in enumerate(row.strip()):
-                        if col in ["v", "^", ">", "<", "I"]:
+                        if col in ["v", "^", ">", "<", "I", "1", "2", "3", "4"]:
                             road_dir = dataDictionary.get(col, "Intersection")
                             agent = Road(f"r_{r * self.width + c}", self, road_dir)
+                            if col in ["1", "2", "3", "4"]:
+                                agent.is_bus_stop = True
+                                self.bus_routes[col].append((c, self.height - r - 1))
                             self.grid.place_agent(agent, (c, self.height - r - 1))
-                            if col in ["v", "^", ">", "<"]:
+                            if col in ["v", "^", ">", "<", "1", "2", "3", "4"]:
                                 self.positions_temp.append((c, self.height - r - 1))
                         elif col in ["T", "t"]:
                             # Place a Road under the Traffic Light for direction context
@@ -167,18 +188,24 @@ class CityModel(Model):
         except Exception as e:
             raise RuntimeError(f"Failed to parse grid file: {e}")
 
-        # Calculate dynamic max capacities based on infrastructure density
-        self.max_cars = max(10, len(self.positions_temp) // 2)
-        self.max_peds = max(10, len(self.pedPos_temp) // 2)
-        
+        # Sort bus stops to create a logical route for each line
+        # Sort bus stops to create a "Full Lap" (circular) route for each line
+        import math
+        for rid in self.bus_routes:
+            stops = self.bus_routes[rid]
+            if not stops: continue
+            
+            # 1. Find the center of all stops
+            cx = sum(s[0] for s in stops) / len(stops)
+            cy = sum(s[1] for s in stops) / len(stops)
+            
+            # 2. Sort by angle from center (Full Lap)
+            # Use atan2(y-cy, x-cx) to get the polar angle
+            self.bus_routes[rid].sort(key=lambda s: math.atan2(s[1] - cy, s[0] - cx))
+
         # --- Initial Spawning ---
         self.replenish_agents()
 
-        if self.positions_temp:
-            b = Bus(3000, self)
-            pos = self.random.choice(self.positions_temp)
-            self.schedule.add(b)
-            self.grid.place_agent(b, pos)
 
     def build_graphs(self):
         # Read the grid into a matrix
@@ -209,7 +236,7 @@ class CityModel(Model):
             "L",
             "c",
         ]
-        ped_chars = ["S", "X", "x", "D", "T", "t", "P", "p", "c"]
+        ped_chars = ["S", "X", "x", "D", "T", "t", "P", "p", "c", "1", "2", "3", "4"]
 
         for y in range(rows):
             for x in range(cols):
@@ -236,13 +263,14 @@ class CityModel(Model):
                             continue
 
                         can_move = False
-                        # Special case: Spawns (G) and Connector nodes can move to ANY adjacent road
+                        # Standard Directional Logic
                         if c == "c" or (c in ["I", "T", "t", "X", "x", "A", "D", "P"]):
                             if (
                                 nc in road_chars 
                                 or nc == move_dir 
                             ):
                                 can_move = True
+                        # Arrows Logic
                         elif c == move_dir:
                             if (
                                 nc
@@ -281,8 +309,7 @@ class CityModel(Model):
         return road_edges, road_graph, ped_graph
 
     def step(self):
-        """Replenish agents and step the model."""
-        self.replenish_agents()
+        """Advance the simulation by one step."""
         if self.schedule.steps % 15 == 0:
             for agent in self.traffic_lights:
                 agent.state = not agent.state
@@ -292,15 +319,13 @@ class CityModel(Model):
         """Maintain the population by spawning new agents at dedicated spawns."""
         active_cars = [a for a in self.schedule.agents if isinstance(a, Car)]
         active_peds = [a for a in self.schedule.agents if isinstance(a, Pedestrian)]
-        active_buses = [a for a in self.schedule.agents if isinstance(a, Bus)]
-
-        # Replenish Cars (Strict Quota: Active + Parked <= Target)
-        total_cars_session = len(active_cars) + self.total_parked_cars
-        if total_cars_session < self.target_cars and self.parking_temp:
+        
+        # Replenish Cars
+        if len(active_cars) < self.target_cars and self.positions_temp:
             spawn_pool = self.car_spawns_temp if self.car_spawns_temp else self.positions_temp
-            for _ in range(min(self.target_cars - total_cars_session, 5)): # Spawn in small batches
-                destpos = self.random.choice(self.parking_temp)
-                new_id = self.random.randint(10000, 19999)
+            for _ in range(self.target_cars - len(active_cars)):
+                destpos = self.random.choice(self.parking_temp) if self.parking_temp else None
+                new_id = str(uuid.uuid4())
                 a = Car(new_id, self, destpos)
                 
                 pos = self.random.choice(spawn_pool)
@@ -313,26 +338,61 @@ class CityModel(Model):
                 self.grid.place_agent(a, pos)
 
         # Replenish Pedestrians (Strict Quota: Active + Finished <= Target)
-        total_peds_session = len(active_peds) + self.total_parked_peds
-        if total_peds_session < self.target_peds and self.destinys_temp:
+        if len(active_peds) < self.target_peds and self.destinys_temp:
             spawn_pool = self.ped_spawns_temp if self.ped_spawns_temp else self.pedPos_temp
-            for _ in range(min(self.target_peds - total_peds_session, 5)):
+            for _ in range(self.target_peds - len(active_peds)):
                 destpos = self.random.choice(self.destinys_temp)
-                new_id = self.random.randint(20000, 29999)
+                new_id = str(uuid.uuid4())
                 a = Pedestrian(new_id, self, destpos)
+                
                 
                 pos = self.random.choice(spawn_pool)
                 self.schedule.add(a)
                 self.grid.place_agent(a, pos)
 
         # Replenish Buses
-        if len(active_buses) < self.target_buses and self.positions_temp:
-            for _ in range(self.target_buses - len(active_buses)):
-                new_id = self.random.randint(30000, 39999)
-                b = Bus(new_id, self)
-                pos = self.random.choice(self.positions_temp)
+        active_buses = [a for a in self.schedule.agents if isinstance(a, Bus)]
+        
+        # 1. Ensure minimum coverage: every route must have at least one bus
+        active_route_ids = [getattr(b, "route_id", None) for b in active_buses]
+        for rid in self.bus_routes:
+            if rid not in active_route_ids and self.bus_routes[rid]:
+                new_id = str(uuid.uuid4())
+                b = Bus(new_id, self, rid)
+                
+                # Spawn beside the stop (on the road)
+                stop_pos = self.bus_routes[rid][0]
+                neighbors = self.grid.get_neighborhood(stop_pos, moore=False, include_center=False)
+                # Find a neighbor that is in the road graph
+                road_neighbors = [n for n in neighbors if (n[1], n[0]) in self.road_graph]
+                pos = road_neighbors[0] if road_neighbors else stop_pos
+                
                 self.schedule.add(b)
                 self.grid.place_agent(b, pos)
+                active_buses.append(b)
+        
+        # 2. Scale up if target_buses > 4: distribute extra buses round-robin
+        while len(active_buses) < self.target_buses:
+            # Pick the route with the fewest buses
+            route_counts = {rid: 0 for rid in self.bus_routes}
+            for b in active_buses:
+                route_counts[b.route_id] += 1
+            
+            # Find rid with min count
+            target_rid = min(route_counts, key=route_counts.get)
+            
+            new_id = str(uuid.uuid4())
+            b = Bus(new_id, self, target_rid)
+            
+            # Spawn beside the stop (on the road)
+            stop_pos = self.bus_routes[target_rid][0]
+            neighbors = self.grid.get_neighborhood(stop_pos, moore=False, include_center=False)
+            road_neighbors = [n for n in neighbors if (n[1], n[0]) in self.road_graph]
+            pos = road_neighbors[0] if road_neighbors else stop_pos
+            
+            self.schedule.add(b)
+            self.grid.place_agent(b, pos)
+            active_buses.append(b)
 
     def get_config(self) -> dict:
         """Return the current simulation configuration."""
@@ -385,6 +445,7 @@ class CityModel(Model):
                         "has_arrived": agent.indestiny,
                         "crossing": False,
                         "waiting": not agent.moving,
+                        "is_boarding": getattr(agent, "is_boarding", False),
                         "despawned": agent.indestiny,
                         "destination": None,
                     }
@@ -398,7 +459,9 @@ class CityModel(Model):
                         "type": "BusAgent",
                         "has_arrived": False,
                         "waiting": not agent.moving,
-                        "route_index": 0,
+                        "passenger_count": len(agent.passengers),
+                        "route_id": agent.route_id,
+                        "route_index": agent.current_stop_index,
                         "destination": None,
                     }
                 )
@@ -420,6 +483,11 @@ class CityModel(Model):
             # Original project grid y is flipped
             grid_lines.reverse()
 
+        # Calculate live stats
+        active_buses = [a for a in self.schedule.agents if isinstance(a, Bus)]
+        avg_occ = sum(len(b.passengers) for b in active_buses) / len(active_buses) if active_buses else 0
+        self.metrics["avg_bus_occupancy"] = round(avg_occ, 1)
+
         return {
             "tick": self.schedule.steps,
             "agents": agents_data,
@@ -427,6 +495,16 @@ class CityModel(Model):
             "grid_width": self.width,
             "grid_height": self.height,
             "grid": grid_lines,
-            "total_parked_cars": self.total_parked_cars,
-            "total_parked_peds": self.total_parked_peds,
+            "stats": {
+                "active_cars": len([a for a in self.schedule.agents if isinstance(a, Car)]),
+                "active_peds": len([a for a in self.schedule.agents if isinstance(a, Pedestrian)]),
+                "active_buses": len(active_buses),
+                "parked_cars": self.total_parked_cars,
+                "parked_peds": self.total_parked_peds,
+                "total_passengers": self.metrics["total_passengers"],
+                "frustrated_peds": self.metrics["frustrated_pedestrians"],
+                "near_misses": self.metrics["near_misses"],
+                "completed_trips": self.metrics["completed_trips"],
+                "bus_occupancy": self.metrics["avg_bus_occupancy"]
+            }
         }

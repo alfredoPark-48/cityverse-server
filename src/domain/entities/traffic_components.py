@@ -84,6 +84,7 @@ class Road(Agent):
     def __init__(self, unique_id, model, direction="Left"):
         super().__init__(unique_id, model)
         self.direction = direction
+        self.is_bus_stop = False
 
     def step(self):
         pass
