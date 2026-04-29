@@ -23,36 +23,49 @@ class Bus(Agent):
         self.STOP_WAIT_TIME = 3 # Ticks to wait at each stop
 
     def calculate_path(self, target_pos):
-        """Calculates a path to the target stop using A*."""
+        """Calculates a path to the target stop using A*.
+
+        Goal selection strategy
+        -----------------------
+        Each bus stop cell is a non-road tile (chars 1-4). The bus must stop
+        adjacent to it on a real road cell. We rank the stop's road neighbours
+        and probe A* through each in order, taking the first that yields a
+        valid path. This prevents the bus from picking a road cell that is
+        physically close but topologically disconnected from the route.
+        """
         current_x, current_y = self.pos
         x_dest, y_dest = target_pos
-        
+
         start_node = (current_y, current_x)
-        goal_node = (y_dest, x_dest)
-        
-        # 1. Ensure goal is a Von Neumann (4-direction) neighbor of the stop
-        # Find all road cells adjacent to the stop
+
+        # Collect road cells that are direct cardinal neighbours of the stop
         possible_goals = []
         for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            neighbor = (y_dest + dy, x_dest + dx)
-            if neighbor in self.model.road_graph:
-                possible_goals.append(neighbor)
-        
-        if possible_goals:
-            # Pick the one closest to current position
-            goal_node = min(possible_goals, key=lambda n: abs(n[0] - current_y) + abs(n[1] - current_x))
-        else:
-            # Fallback to nearest road cell if no cardinal neighbors found
+            n = (y_dest + dy, x_dest + dx)
+            if n in self.model.road_graph:
+                possible_goals.append(n)
+
+        # Sort by proximity to the stop itself (stable, adjacent order)
+        possible_goals.sort(key=lambda n: abs(n[0] - y_dest) + abs(n[1] - x_dest))
+
+        # Try each candidate; use the first one A* can actually reach.
+        for goal_node in possible_goals:
+            _, path = a_star_search(self.model.road_graph, start_node, goal_node)
+            if len(path) > 1:
+                self.path = [(x, y) for y, x in path]
+                self.path.pop(0)  # Remove current position
+                return
+
+        # Fallback: no cardinal road cell reachable - aim for absolute nearest road node.
+        if not self.path:
             nodes = list(self.model.road_graph.keys())
-            goal_node = min(nodes, key=lambda n: abs(n[0] - goal_node[0]) + abs(n[1] - goal_node[1]))
-        
-        _, path = a_star_search(self.model.road_graph, start_node, goal_node)
-        
-        if len(path) > 1:
-            self.path = [(x, y) for y, x in path]
-            self.path.pop(0) # Remove current pos
-        else:
-            self.path = []
+            goal_node = min(nodes, key=lambda n: abs(n[0] - y_dest) + abs(n[1] - x_dest))
+            _, path = a_star_search(self.model.road_graph, start_node, goal_node)
+            if len(path) > 1:
+                self.path = [(x, y) for y, x in path]
+                self.path.pop(0)
+            else:
+                self.path = []
 
     def move(self):
         # -1. Simulation Termination Check: Stop if no active peds and bus is empty

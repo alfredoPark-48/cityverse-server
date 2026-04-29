@@ -26,7 +26,7 @@ from src.domain.entities import (
     CarSpawn,
     PedestrianSpawn,
 )
-from src.shared.config import GRID_FILE_PATH
+from src.shared.config import GRID_FILE_PATH, BUS_ROUTES_FILE_PATH
 
 
 class CityModel(Model):
@@ -58,17 +58,26 @@ class CityModel(Model):
         self.target_cars = 30
         self.target_peds = 30
         self.target_buses = 4
-        
+
         # Cumulative stats
         self.total_parked_cars = 0
         self.total_parked_peds = 0
-        
-        # Bus Route Data (populated during grid parsing)
-        self.bus_routes = {
-            "1": [],
-            "2": [],
-            "3": [],
-            "4": []
+
+        # ── Bus Route Data ────────────────────────────────────────────────────
+        # Routes are defined explicitly in bus_routes.json as ordered lists of
+        # [x, y] stop coordinates (Mesa grid space). The file is the single
+        # source of truth; no runtime sorting is ever performed.
+        routes_path = os.path.join(os.path.dirname(GRID_FILE_PATH), os.path.basename(BUS_ROUTES_FILE_PATH))
+        if not os.path.exists(routes_path):
+            raise FileNotFoundError(f"Bus routes file not found: {routes_path}")
+        with open(routes_path, "r") as rf:
+            raw_routes = json.load(rf)
+
+        # Strip the optional comment key and normalise values to tuples
+        self.bus_routes: dict[str, list[tuple[int, int]]] = {
+            rid: [tuple(coord) for coord in stops]
+            for rid, stops in raw_routes.items()
+            if not rid.startswith("_")  # ignore _comment and similar meta-keys
         }
         
         # Capacity limits
@@ -110,8 +119,9 @@ class CityModel(Model):
                             road_dir = dataDictionary.get(col, "Intersection")
                             agent = Road(f"r_{r * self.width + c}", self, road_dir)
                             if col in ["1", "2", "3", "4"]:
+                                # Mark the cell so passengers know this is a stop;
+                                # stop ORDER comes from bus_routes.json, not the grid scan.
                                 agent.is_bus_stop = True
-                                self.bus_routes[col].append((c, self.height - r - 1))
                             self.grid.place_agent(agent, (c, self.height - r - 1))
                             if col in ["v", "^", ">", "<", "1", "2", "3", "4"]:
                                 self.positions_temp.append((c, self.height - r - 1))
@@ -188,20 +198,23 @@ class CityModel(Model):
         except Exception as e:
             raise RuntimeError(f"Failed to parse grid file: {e}")
 
-        # Sort bus stops to create a logical route for each line
-        # Sort bus stops to create a "Full Lap" (circular) route for each line
-        import math
-        for rid in self.bus_routes:
-            stops = self.bus_routes[rid]
-            if not stops: continue
-            
-            # 1. Find the center of all stops
-            cx = sum(s[0] for s in stops) / len(stops)
-            cy = sum(s[1] for s in stops) / len(stops)
-            
-            # 2. Sort by angle from center (Full Lap)
-            # Use atan2(y-cy, x-cx) to get the polar angle
-            self.bus_routes[rid].sort(key=lambda s: math.atan2(s[1] - cy, s[0] - cx))
+        # ── Validate that every stop from the JSON exists on the grid ────────
+        # This catches mismatches between bus_routes.json and city.txt early,
+        # giving a clear error instead of a silent pathfinding failure at runtime.
+        for rid, stops in self.bus_routes.items():
+            for stop in stops:
+                sx, sy = stop
+                if not (0 <= sx < self.width and 0 <= sy < self.height):
+                    raise ValueError(
+                        f"Route {rid} stop {stop} is outside the grid "
+                        f"({self.width}×{self.height}). Check bus_routes.json."
+                    )
+                cell_agents = self.grid.get_cell_list_contents(stop)
+                if not any(getattr(a, "is_bus_stop", False) for a in cell_agents):
+                    raise ValueError(
+                        f"Route {rid} stop {stop} does not match a bus-stop cell "
+                        f"in the grid. Verify bus_routes.json against city.txt."
+                    )
 
         # --- Initial Spawning ---
         self.replenish_agents()
@@ -352,47 +365,96 @@ class CityModel(Model):
 
         # Replenish Buses
         active_buses = [a for a in self.schedule.agents if isinstance(a, Bus)]
-        
+
         # 1. Ensure minimum coverage: every route must have at least one bus
         active_route_ids = [getattr(b, "route_id", None) for b in active_buses]
         for rid in self.bus_routes:
             if rid not in active_route_ids and self.bus_routes[rid]:
                 new_id = str(uuid.uuid4())
                 b = Bus(new_id, self, rid)
-                
-                # Spawn beside the stop (on the road)
-                stop_pos = self.bus_routes[rid][0]
-                neighbors = self.grid.get_neighborhood(stop_pos, moore=False, include_center=False)
-                # Find a neighbor that is in the road graph
-                road_neighbors = [n for n in neighbors if (n[1], n[0]) in self.road_graph]
-                pos = road_neighbors[0] if road_neighbors else stop_pos
-                
+                pos = self._bus_spawn_pos(rid)
                 self.schedule.add(b)
                 self.grid.place_agent(b, pos)
                 active_buses.append(b)
-        
+
         # 2. Scale up if target_buses > 4: distribute extra buses round-robin
         while len(active_buses) < self.target_buses:
-            # Pick the route with the fewest buses
             route_counts = {rid: 0 for rid in self.bus_routes}
             for b in active_buses:
                 route_counts[b.route_id] += 1
-            
-            # Find rid with min count
             target_rid = min(route_counts, key=route_counts.get)
-            
+
             new_id = str(uuid.uuid4())
             b = Bus(new_id, self, target_rid)
-            
-            # Spawn beside the stop (on the road)
-            stop_pos = self.bus_routes[target_rid][0]
-            neighbors = self.grid.get_neighborhood(stop_pos, moore=False, include_center=False)
-            road_neighbors = [n for n in neighbors if (n[1], n[0]) in self.road_graph]
-            pos = road_neighbors[0] if road_neighbors else stop_pos
-            
+            pos = self._bus_spawn_pos(target_rid)
             self.schedule.add(b)
             self.grid.place_agent(b, pos)
             active_buses.append(b)
+
+    def _bus_spawn_pos(self, route_id: str) -> tuple[int, int]:
+        """
+        Finds a valid road cell to spawn a bus near its first stop.
+        Filters out non-driving cells like Lots, Parking, and Destinations.
+        """
+        route = self.bus_routes.get(route_id)
+        if not route:
+            return (0, 0)
+        
+        stop_pos = route[0]
+        next_stop = route[1] if len(route) > 1 else route[0]
+        
+        # Get all cardinal neighbors of the stop
+        neighbors = self.grid.get_neighborhood(stop_pos, moore=False, include_center=False)
+        
+        # We only want neighbors that are:
+        # 1. In the road graph
+        # 2. NOT 'L', 'P', 'D', 'A', 'c' (Lots, Parking, etc. - these are in road_graph for peds)
+        valid_candidates = []
+        
+        # Need to check the grid character to be sure
+        for n in neighbors:
+            if (n[1], n[0]) not in self.road_graph:
+                continue
+            
+            # Check cell contents for Road objects to verify direction/type
+            cell_agents = self.grid.get_cell_list_contents(n)
+            is_driving_road = False
+            for a in cell_agents:
+                # Road agents have their direction set from the dataDictionary
+                # We want to avoid things like "Lot", "Parking", etc.
+                if type(a).__name__ == "Road":
+                    # Directions like "Right", "Left", "Up", "Down", "Intersection" are valid
+                    if a.direction in ["Right", "Left", "Up", "Down", "Intersection"]:
+                        is_driving_road = True
+                        break
+            
+            if is_driving_road:
+                valid_candidates.append(n)
+        
+        if not valid_candidates:
+            # Fallback to any road neighbor if no "pure" road neighbors found
+            valid_candidates = [n for n in neighbors if (n[1], n[0]) in self.road_graph]
+        
+        if not valid_candidates:
+            return stop_pos
+
+        # Rank candidates by reachability to the NEXT stop
+        from src.application.services.graph_service import a_star_search
+        for cand in valid_candidates:
+            start_node = (cand[1], cand[0])
+            # Find a goal neighbor for the next stop
+            next_goals = []
+            for dy, dx in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                g = (next_stop[1] + dy, next_stop[0] + dx)
+                if g in self.road_graph:
+                    next_goals.append(g)
+            
+            for gn in next_goals:
+                _, path = a_star_search(self.road_graph, start_node, gn)
+                if len(path) > 1:
+                    return cand
+                    
+        return valid_candidates[0]
 
     def get_config(self) -> dict:
         """Return the current simulation configuration."""
