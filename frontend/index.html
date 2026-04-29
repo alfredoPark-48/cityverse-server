@@ -1,683 +1,990 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CityVerse Traffic Simulation</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
 
-      body {
-        font-family: "Inter", sans-serif;
-        background: #0a0e1a;
-        color: #e0e6ed;
-        min-height: 100vh;
-        overflow-x: hidden;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CityVerse Traffic Simulation</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-      .app {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 24px;
-      }
+    body {
+      font-family: "Inter", sans-serif;
+      background: #0a0e1a;
+      color: #e0e6ed;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
 
-      /* Header */
-      .header {
-        text-align: center;
-        margin-bottom: 24px;
-      }
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
 
-      .header h1 {
-        font-size: 28px;
-        font-weight: 700;
-        background: linear-gradient(135deg, #00b4d8, #06d6a0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 4px;
-      }
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
 
-      .header p {
-        font-size: 13px;
-        color: #5a6a80;
-      }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00b4d8, #06d6a0);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
 
-      /* Controls */
-      .controls {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-      }
+    .header p {
+      font-size: 13px;
+      color: #5a6a80;
+    }
 
-      .btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 8px;
-        font-family: "Inter", sans-serif;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
+    /* Controls */
+    .controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
 
-      .btn:hover {
-        transform: translateY(-1px);
-      }
-      .btn:active {
-        transform: translateY(0);
-      }
+    .btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-family: "Inter", sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
 
-      .btn-step {
-        background: linear-gradient(135deg, #0077b6, #00b4d8);
-        color: white;
-      }
+    .btn:hover {
+      transform: translateY(-1px);
+    }
 
-      .btn-play {
-        background: linear-gradient(135deg, #059669, #06d6a0);
-        color: white;
-      }
+    .btn:active {
+      transform: translateY(0);
+    }
 
-      .btn-pause {
-        background: linear-gradient(135deg, #d97706, #fbbf24);
-        color: #1a1a2e;
-      }
+    .btn-step {
+      background: linear-gradient(135deg, #0077b6, #00b4d8);
+      color: white;
+    }
 
-      .btn-reset {
-        background: linear-gradient(135deg, #dc2626, #f87171);
-        color: white;
-      }
+    .btn-play {
+      background: linear-gradient(135deg, #059669, #06d6a0);
+      color: white;
+    }
 
-      .btn.active {
-        box-shadow: 0 0 12px rgba(6, 214, 160, 0.5);
-      }
+    .btn-pause {
+      background: linear-gradient(135deg, #d97706, #fbbf24);
+      color: #1a1a2e;
+    }
 
-      .speed-control {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: #111827;
-        padding: 8px 14px;
-        border-radius: 8px;
-        font-size: 12px;
-        color: #8892a4;
-      }
+    .btn-reset {
+      background: linear-gradient(135deg, #dc2626, #f87171);
+      color: white;
+    }
 
-      .speed-control input[type="range"] {
-        width: 100px;
-        accent-color: #06d6a0;
-      }
+    .btn.active {
+      box-shadow: 0 0 12px rgba(6, 214, 160, 0.5);
+    }
 
-      .speed-val {
-        color: #06d6a0;
-        font-weight: 600;
-        min-width: 40px;
-      }
+    .speed-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: #8892a4;
+      background: #161e2d;
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
 
-      /* Stats Bar */
-      .stats-bar {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 10px;
-        margin-bottom: 20px;
-      }
+    /* Settings Panel */
+    .settings-panel {
+      background: #111827;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      border: 1px solid #1e293b;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
 
-      .stat-card {
-        background: linear-gradient(135deg, #111827, #1a2332);
-        border: 1px solid #1e293b;
-        border-radius: 10px;
-        padding: 14px;
-        text-align: center;
-      }
+    .setting-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
 
-      .stat-card .stat-icon {
-        font-size: 20px;
-        margin-bottom: 4px;
-      }
+    .setting-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
 
-      .stat-card .stat-value {
-        font-size: 22px;
-        font-weight: 700;
-        color: #fff;
-      }
+    .setting-label span:last-child {
+      color: #06d6a0;
+    }
 
-      .stat-card .stat-label {
-        font-size: 11px;
-        color: #5a6a80;
-        margin-top: 2px;
-      }
+    .setting-input {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      background: #1e293b;
+      border-radius: 3px;
+      outline: none;
+    }
 
-      /* Grid */
-      .grid-wrapper {
-        display: flex;
-        justify-content: center;
-        overflow: auto;
-        padding: 16px;
-        background: linear-gradient(135deg, #0d1117, #111827);
-        border: 1px solid #1e293b;
-        border-radius: 12px;
-      }
+    .setting-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #00b4d8;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid #0a0e1a;
+    }
 
-      .grid-container {
-        display: grid;
-        gap: 1px;
-        background: #0a0e1a;
-      }
+    .speed-control input[type="range"] {
+      width: 100px;
+      accent-color: #06d6a0;
+    }
 
-      .cell {
-        width: 16px;
-        height: 16px;
-        border-radius: 2px;
-        transition: background-color 0.15s ease;
-        position: relative;
-      }
+    .speed-val {
+      color: #06d6a0;
+      font-weight: 600;
+      min-width: 40px;
+    }
 
-      /* Cell type colors */
-      .cell-grass {
-        background: #0f172a;
-      } /* Deep navy for grass/empty */
-      .cell-sidewalk {
-        background: #948e8e;
-      }
-      .cell-road {
-        background: #1e293b;
-      }
-      .cell-crosswalk {
-        background: #94a3b8;
-        border: 1px solid #64748b;
-      }
-      .cell-building {
-        background: #6d6d6d;
-        border: 1px solid #1e293b;
-        box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-      }
-      .cell-roundabout {
-        background: #78350f;
-        border-radius: 50%;
-        box-shadow: 0 0 8px rgba(120, 53, 15, 0.4);
-      }
-      .cell-parking {
-        background: #1e3a5f;
-      }
-      .cell-traffic-light {
-        background: #1e293b;
-      }
-      .cell-obstacle {
-        background: #10b981;
-        border-radius: 50%;
-        box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
-        border: 1px solid #059669;
-      }
-      .cell-destination {
-        background: #648092;
-      }
+    /* Stats Bar */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
 
-      /* Traffic light states */
-      .cell-light-red {
-        box-shadow:
-          inset 0 0 8px #ef4444,
-          0 0 4px #ef4444;
-      }
-      .cell-light-yellow {
-        box-shadow:
-          inset 0 0 8px #eab308,
-          0 0 4px #eab308;
-      }
-      .cell-light-green {
-        box-shadow:
-          inset 0 0 8px #22c55e,
-          0 0 4px #22c55e;
-      }
+    .stat-card {
+      background: linear-gradient(135deg, #111827, #1a2332);
+      border: 1px solid #1e293b;
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
 
-      /* Agents on top of cells */
-      .cell-car {
-        background: #00b4d8 !important;
-        box-shadow: 0 0 8px rgba(0, 180, 216, 0.7);
-        border-radius: 3px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .cell-car::after {
-        content: "🚗";
-        font-size: 14px;
-      }
+    .stat-card .stat-icon {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
 
-      .cell-car-parked {
-        background: #0077b6 !important;
-        box-shadow: 0 0 4px rgba(0, 119, 182, 0.5);
-        border-radius: 3px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .cell-car-parked::after {
-        content: "🅿️";
-        font-size: 14px;
-      }
+    .stat-card .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+    }
 
-      .cell-car-waiting {
-        background: #f59e0b !important;
-        box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
-        border-radius: 3px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .cell-car-waiting::after {
-        content: "🚗";
-        font-size: 14px;
-        opacity: 0.7;
-      }
+    .stat-card .stat-label {
+      font-size: 11px;
+      color: #5a6a80;
+      margin-top: 2px;
+    }
 
-      .cell-bus {
-        background: #a855f7 !important; /* Purple for buses */
-        box-shadow: 0 0 10px rgba(168, 85, 247, 0.8);
-        border-radius: 4px;
-        border: 1px solid #d8b4fe;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .cell-bus::after {
-        content: "🚌";
-        font-size: 14px;
-      }
+    /* Grid */
+    .grid-wrapper {
+      display: flex;
+      justify-content: center;
+      overflow: auto;
+      padding: 16px;
+      background: linear-gradient(135deg, #0d1117, #111827);
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+    }
 
-      .cell-ped {
-        background: #06d6a0 !important;
-        box-shadow: 0 0 8px rgba(6, 214, 160, 0.7);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .cell-ped::after {
-        content: "🚶";
-        font-size: 14px;
-      }
+    .grid-container {
+      display: grid;
+      gap: 1px;
+      background: #0a0e1a;
+    }
 
-      .cell-ped-waiting {
-        background: #f97316 !important;
-        box-shadow: 0 0 6px rgba(249, 115, 22, 0.6);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .cell-ped-waiting::after {
-        content: "🚶";
-        font-size: 14px;
-        opacity: 0.7;
-      }
+    .cell {
+      width: 16px;
+      height: 16px;
+      border-radius: 2px;
+      transition: background-color 0.15s ease;
+      position: relative;
+    }
 
-      /* Legend */
-      .legend {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 16px;
-        margin-top: 16px;
-        font-size: 11px;
-        color: #8892a4;
-      }
+    /* Cell type colors */
+    .cell-grass {
+      background: #0f172a;
+    }
 
-      .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
+    /* Deep navy for grass/empty */
+    .cell-sidewalk {
+      background: #948e8e;
+    }
 
-      .legend-swatch {
-        width: 14px;
-        height: 14px;
-        border-radius: 3px;
-      }
+    .cell-road {
+      background: #2F2F2F;
+    }
 
-      .legend-swatch.round {
-        border-radius: 50%;
-      }
+    .cell-crosswalk {
+      background: #94a3b8;
+      border: 1px solid #64748b;
+    }
 
-      /* Tooltip */
-      .cell[title] {
-        cursor: crosshair;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="app">
-      <div class="header">
-        <h1>🚦 CityVerse Traffic Simulation</h1>
-        <p>Agent-based city traffic simulation powered by Mesa</p>
+    .cell-building {
+      background: #7AAACE;
+      border: 1px solid #1e293b;
+      box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .cell-angel {
+      background: #ffd700;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+      border: 1px solid #b8860b;
+    }
+
+    .cell-parking {
+      background: #FFDE42;
+    }
+
+    .cell-traffic-light {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .cell-vegetation {
+      background: #468432;
+      border-radius: 50%;
+      border: 1px solid #366627;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cell-vegetation::after {
+      content: "🌳";
+      font-size: 10px;
+    }
+
+    .cell-water {
+      background: #2563eb;
+      border: 1px solid #0000ff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cell-water::after {
+      content: "💧";
+      font-size: 10px;
+    }
+
+    .cell-destination {
+      background: #D6336C;
+    }
+
+    .cell-home {
+      background: #E87A90;
+      border: 1px solid #1e293b;
+      box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .cell-car-spawn {
+      background: #4C6CB3;
+      border: 1px solid #1e293b;
+      position: relative;
+    }
+    .cell-car-spawn::before {
+      content: "CS";
+      font-size: 8px;
+      color: white;
+      font-weight: bold;
+      opacity: 0.5;
+      position: absolute;
+      top: 0; left: 0;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-ped-spawn {
+      background: #06d6a0;
+      border: 1px solid #1e293b;
+      position: relative;
+    }
+    .cell-ped-spawn::before {
+      content: "PS";
+      font-size: 8px;
+      color: #111827;
+      font-weight: bold;
+      opacity: 0.5;
+      position: absolute;
+      top: 0; left: 0;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-lot {
+      background: #2d3748;
+      border: 1px solid #1e293b;
+    }
+
+    /* Traffic light states - Realistic Glows */
+    .cell-light-red {
+      background: radial-gradient(circle, #ff3b3b 30%, #111827 70%) !important;
+      box-shadow:
+        0 0 12px #ff3b3b,
+        0 0 24px rgba(255, 59, 59, 0.3);
+    }
+
+    .cell-light-yellow {
+      background: radial-gradient(circle, #ffcc00 30%, #111827 70%) !important;
+      box-shadow:
+        0 0 12px #ffcc00,
+        0 0 24px rgba(255, 204, 0, 0.3);
+    }
+
+    .cell-light-green {
+      background: radial-gradient(circle, #33ff33 30%, #111827 70%) !important;
+      box-shadow:
+        0 0 12px #33ff33,
+        0 0 24px rgba(51, 255, 51, 0.3);
+    }
+
+    /* Agents on top of cells */
+    .cell-car {
+      background: #00b4d8 !important;
+      box-shadow: 0 0 8px rgba(0, 180, 216, 0.7);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-car::after {
+      content: "🚗";
+      font-size: 14px;
+    }
+
+    .cell-car-parked {
+      background: #0077b6 !important;
+      box-shadow: 0 0 4px rgba(0, 119, 182, 0.5);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-car-parked::after {
+      content: "🅿️";
+      font-size: 14px;
+    }
+
+    .cell-car-waiting {
+      background: #f59e0b !important;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-car-waiting::after {
+      content: "🚗";
+      font-size: 14px;
+      opacity: 0.7;
+    }
+
+    .cell-bus {
+      background: #a855f7 !important;
+      /* Purple for buses */
+      box-shadow: 0 0 10px rgba(168, 85, 247, 0.8);
+      border-radius: 4px;
+      border: 1px solid #d8b4fe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus::after {
+      content: "🚌";
+      font-size: 14px;
+    }
+
+    .cell-ped {
+      background: #06d6a0 !important;
+      box-shadow: 0 0 8px rgba(6, 214, 160, 0.7);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-ped::after {
+      content: "🚶";
+      font-size: 14px;
+    }
+
+    .cell-ped-waiting {
+      background: #f97316 !important;
+      box-shadow: 0 0 6px rgba(249, 115, 22, 0.6);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-ped-waiting::after {
+      content: "🚶";
+      font-size: 14px;
+      opacity: 0.7;
+    }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 16px;
+      font-size: 11px;
+      color: #8892a4;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+
+    .legend-swatch.round {
+      border-radius: 50%;
+    }
+
+    /* Hide icons in legend swatches */
+    .legend .legend-swatch::after {
+      content: none !important;
+    }
+
+    /* Notifications */
+    .notification-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .notification {
+      background: #111827;
+      border: 1px solid #1e293b;
+      color: #e0e6ed;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+      animation: slideIn 0.3s ease forwards;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-left: 4px solid #00b4d8;
+    }
+
+    .notification.error {
+      border-left-color: #dc2626;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="notification-container" id="notifications"></div>
+  <div class="app">
+    <div class="header">
+      <h1>🚦 CityVerse Traffic Simulation</h1>
+      <p>Agent-based city traffic simulation powered by Mesa</p>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-step" id="stepBtn">▶ Step</button>
+      <button class="btn btn-play" id="playBtn">⏵ Play</button>
+      <button class="btn btn-pause" id="pauseBtn">⏸ Pause</button>
+      <button class="btn btn-reset" id="resetBtn">🔄 Reset</button>
+      <div class="speed-control">
+        <span>Speed:</span>
+        <input type="range" id="speed" min="50" max="1000" value="300" step="50" />
+        <span class="speed-val" id="speedVal">300ms</span>
       </div>
-
-      <div class="controls">
-        <button class="btn btn-step" id="stepBtn">▶ Step</button>
-        <button class="btn btn-play" id="playBtn">⏵ Play</button>
-        <button class="btn btn-pause" id="pauseBtn">⏸ Pause</button>
-        <button class="btn btn-reset" id="resetBtn">🔄 Reset</button>
-        <div class="speed-control">
-          <span>Speed:</span>
-          <input
-            type="range"
-            id="speed"
-            min="50"
-            max="1000"
-            value="300"
-            step="50"
-          />
-          <span class="speed-val" id="speedVal">300ms</span>
+    </div>
+    <div class="settings-panel">
+      <div class="setting-group">
+        <div class="setting-label">
+          <span>Target Cars</span>
+          <span id="carTargetVal">30</span>
         </div>
+        <input type="range" id="carTarget" class="setting-input" min="0" max="100" value="30" />
       </div>
-
-      <div class="stats-bar">
-        <div class="stat-card">
-          <div class="stat-icon">⏱️</div>
-          <div class="stat-value" id="tickCount">0</div>
-          <div class="stat-label">Tick</div>
+      <div class="setting-group">
+        <div class="setting-label">
+          <span>Target Pedestrians</span>
+          <span id="pedTargetVal">30</span>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon">🚗</div>
-          <div class="stat-value" id="carCount">0</div>
-          <div class="stat-label">Active Cars</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">🅿️</div>
-          <div class="stat-value" id="parkedCount">0</div>
-          <div class="stat-label">Parked</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">🚶</div>
-          <div class="stat-value" id="pedCount">0</div>
-          <div class="stat-label">Pedestrians</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">⏳</div>
-          <div class="stat-value" id="waitingCount">0</div>
-          <div class="stat-label">Waiting</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">🚦</div>
-          <div class="stat-value" id="lightCount">0</div>
-          <div class="stat-label">Traffic Lights</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">🚌</div>
-          <div class="stat-value" id="busCount">0</div>
-          <div class="stat-label">Buses</div>
-        </div>
+        <input type="range" id="pedTarget" class="setting-input" min="0" max="100" value="30" />
       </div>
-
-      <div class="grid-wrapper">
-        <div class="grid-container" id="grid"></div>
-      </div>
-
-      <div class="legend">
-        <div class="legend-item">
-          <div class="legend-swatch" style="background: #00b4d8"></div>
-          Car (moving)
+      <div class="setting-group">
+        <div class="setting-label">
+          <span>Target Buses</span>
+          <span id="busTargetVal">1</span>
         </div>
-        <div class="legend-item">
-          <div class="legend-swatch" style="background: #f59e0b"></div>
-          Car (waiting)
-        </div>
-        <div class="legend-item">
-          <div class="legend-swatch" style="background: #a855f7"></div>
-          Bus
-        </div>
-        <div class="legend-item">
-          <div class="legend-swatch round" style="background: #06d6a0"></div>
-          Pedestrian
-        </div>
-        <div class="legend-item">
-          <div class="legend-swatch round" style="background: #f97316"></div>
-          Ped (waiting)
-        </div>
-        <div class="legend-item">
-          <div class="legend-swatch" style="background: #1e293b"></div>
-          Road
-        </div>
-        <div class="legend-item">
-          <div
-            class="legend-swatch"
-            style="background: #6d6d6d; border: 1px solid #1e293b"
-          ></div>
-          Building
-        </div>
-        <div class="legend-item">
-          <div class="legend-swatch" style="background: #2f2f2f"></div>
-          Parking
-        </div>
-        <div class="legend-item">
-          <div class="legend-swatch" style="background: #648092"></div>
-          Destination
-        </div>
-        <div class="legend-item">
-          <div class="legend-swatch" style="background: #948e8e"></div>
-          Sidewalk
-        </div>
-        <div class="legend-item">
-          <div
-            class="legend-swatch"
-            style="background: #94a3b8; border: 1px solid #64748b"
-          ></div>
-          Crosswalk
-        </div>
-        <div class="legend-item">
-          <div
-            class="legend-swatch"
-            style="background: #78350f; border-radius: 50%"
-          ></div>
-          Angel
-        </div>
-        <div class="legend-item">
-          <div
-            class="legend-swatch"
-            style="
-              background: #10b981;
-              border-radius: 50%;
-              border: 1px solid #059669;
-            "
-          ></div>
-          Obstacle
-        </div>
+        <input type="range" id="busTarget" class="setting-input" min="0" max="5" value="1" />
       </div>
     </div>
 
-    <script>
-      // Use relative URL when served from the same origin (Docker), or set manually for CORS
-      const API_URL = window.location.origin;
-      let playing = false;
-      let speed = 300;
-      let loopTimer = null;
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-icon">⏱️</div>
+        <div class="stat-value" id="tickCount">0</div>
+        <div class="stat-label">Tick</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🚗</div>
+        <div class="stat-value" id="carCount">0</div>
+        <div class="stat-label">Active Cars</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🅿️</div>
+        <div class="stat-value" id="parkedCount">0</div>
+        <div class="stat-label">Parked</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🚶</div>
+        <div class="stat-value" id="pedCount">0</div>
+        <div class="stat-label">Pedestrians</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-value" id="waitingCount">0</div>
+        <div class="stat-label">Waiting</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🚦</div>
+        <div class="stat-value" id="lightCount">0</div>
+        <div class="stat-label">Traffic Lights</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🚌</div>
+        <div class="stat-value" id="busCount">0</div>
+        <div class="stat-label">Buses</div>
+      </div>
+    </div>
 
-      // Cache char→class mapping
-      const CHAR_CLASS = {
-        v: "cell-road",
-        "^": "cell-road",
-        ">": "cell-road",
-        "<": "cell-road",
-        "+": "cell-road",
-        B: "cell-sidewalk",
-        S: "cell-traffic-light",
-        s: "cell-traffic-light",
-        "#": "cell-obstacle",
-        D: "cell-destination",
-        E: "cell-building",
-        A: "cell-roundabout",
-        Z: "cell-crosswalk",
-        z: "cell-crosswalk",
-        ".": "cell-grass",
-      };
+    <div class="grid-wrapper">
+      <div class="grid-container" id="grid"></div>
+    </div>
 
-      async function apiGet(path) {
-        const r = await fetch(`${API_URL}${path}`);
-        return r.json();
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-swatch cell-car"></div>
+        Car (moving)
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-car-waiting"></div>
+        Car (waiting)
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-bus"></div>
+        Bus
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-ped"></div>
+        Pedestrian
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-ped-waiting"></div>
+        Ped (waiting)
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-road"></div>
+        Road
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-building"></div>
+        Building
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-parking"></div>
+        Parking
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-lot"></div>
+        Lot
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-destination"></div>
+        Destination
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-sidewalk"></div>
+        Sidewalk
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-crosswalk"></div>
+        Crosswalk
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-roundabout"></div>
+        Angel
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-vegetation"></div>
+        Vegetation
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-water"></div>
+        Water
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-light-red"></div>
+        Red Light
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-light-green"></div>
+        Green Light
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-home"></div>
+        House
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-car-spawn"></div>
+        Car Spawn (CS)
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch cell-ped-spawn"></div>
+        Ped Spawn (PS)
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // UI Helpers
+    function showNotification(message, type = "info") {
+      const container = document.getElementById("notifications");
+      const note = document.createElement("div");
+      note.className = `notification ${type}`;
+      note.innerHTML = `<span>${type === "error" ? "❌" : "ℹ️"}</span> ${message}`;
+      container.appendChild(note);
+
+      setTimeout(() => {
+        note.style.animation = "fadeOut 0.5s ease forwards";
+        setTimeout(() => note.remove(), 500);
+      }, 4000);
+    }
+
+    async function apiFetch(url, options = {}) {
+      try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail || `Server returned ${response.status}`);
+        }
+        return await response.json();
+      } catch (err) {
+        showNotification(err.message, "error");
+        throw err;
       }
+    }
 
-      async function apiPost(path) {
-        const r = await fetch(`${API_URL}${path}`, { method: "POST" });
-        return r.json();
-      }
+    const API_URL = window.location.origin;
+    let playing = false;
+    let speed = 300;
+    let loopTimer = null;
 
-      async function doStep() {
+    // Cache char→class mapping
+    const CHAR_CLASS = {
+      "^": "cell-road",
+      "v": "cell-road",
+      ">": "cell-road",
+      "<": "cell-road",
+      I: "cell-road",
+      S: "cell-sidewalk",
+      T: "cell-traffic-light",
+      t: "cell-traffic-light",
+      V: "cell-vegetation",
+      W: "cell-water",
+      D: "cell-destination",
+      B: "cell-building",
+      A: "cell-angel",
+      X: "cell-crosswalk",
+      x: "cell-crosswalk",
+      P: "cell-parking",
+      L: "cell-lot",
+      H: "cell-home",
+      c: "cell-car-spawn",
+      p: "cell-ped-spawn",
+      ".": "cell-grass",
+    };
+
+    async function apiGet(path) {
+      return await apiFetch(`${API_URL}${path}`);
+    }
+
+    async function apiPost(path) {
+      return await apiFetch(`${API_URL}${path}`, { method: "POST" });
+    }
+
+    async function doStep() {
+      try {
         const state = await apiGet("/step");
         renderState(state);
         const stats = await apiGet("/stats");
         renderStats(stats);
+      } catch (err) {
+        // Error handled by apiFetch
       }
+    }
 
-      async function doReset() {
+    async function doReset() {
+      try {
         stopPlaying();
         const state = await apiPost("/reset");
         renderState(state);
         const stats = await apiGet("/stats");
         renderStats(stats);
+        await fetchConfig(); // Refresh limits
+      } catch (err) {
+        // Error handled by apiFetch
+      }
+    }
+
+    function renderState(state) {
+      const { grid, grid_width, grid_height, agents, traffic_lights, tick } =
+        state;
+      const container = document.getElementById("grid");
+      container.style.gridTemplateColumns = `repeat(${grid_width}, 16px)`;
+
+      // Build lookup maps for agents and lights
+      const agentMap = {};
+      for (const a of agents) {
+        const key = `${a.x},${a.y}`;
+        agentMap[key] = a;
       }
 
-      function renderState(state) {
-        const { grid, grid_width, grid_height, agents, traffic_lights, tick } =
-          state;
-        const container = document.getElementById("grid");
-        container.style.gridTemplateColumns = `repeat(${grid_width}, 16px)`;
+      const lightMap = {};
+      for (const tl of traffic_lights) {
+        lightMap[`${tl.x},${tl.y}`] = tl;
+      }
 
-        // Build lookup maps for agents and lights
-        const agentMap = {};
-        for (const a of agents) {
-          const key = `${a.x},${a.y}`;
-          agentMap[key] = a;
-        }
+      // Render grid cells
+      const cells = [];
+      for (let y = 0; y < grid_height; y++) {
+        for (let x = 0; x < grid_width; x++) {
+          const ch = grid[y][x];
+          const key = `${x},${y}`;
+          const agent = agentMap[key];
+          const light = lightMap[key];
 
-        const lightMap = {};
-        for (const tl of traffic_lights) {
-          lightMap[`${tl.x},${tl.y}`] = tl;
-        }
+          let cls = "cell " + (CHAR_CLASS[ch] || "cell-grass");
+          let title = `(${x},${y}) ${ch}`;
 
-        // Render grid cells
-        const cells = [];
-        for (let y = 0; y < grid_height; y++) {
-          for (let x = 0; x < grid_width; x++) {
-            const ch = grid[y][x];
-            const key = `${x},${y}`;
-            const agent = agentMap[key];
-            const light = lightMap[key];
-
-            let cls = "cell " + (CHAR_CLASS[ch] || "cell-grass");
-            let title = `(${x},${y}) ${ch}`;
-
-            // Agent overlay
-            if (agent) {
-              if (agent.type === "CarAgent") {
-                if (agent.parked) cls = "cell cell-car-parked";
-                else if (agent.waiting) cls = "cell cell-car-waiting";
-                else cls = "cell cell-car";
-                title += ` | Car #${agent.id}${agent.parked ? " [PARKED]" : ""}${agent.waiting ? " [WAITING]" : ""}`;
-              } else if (agent.type === "PedestrianAgent") {
-                if (agent.waiting) cls = "cell cell-ped-waiting";
-                else cls = "cell cell-ped";
-                title += ` | Ped #${agent.id}${agent.crossing ? " [CROSSING]" : ""}`;
-              } else if (agent.type === "BusAgent") {
-                cls = "cell cell-bus";
-                title += ` | Bus #${agent.id}${agent.waiting ? " [WAITING]" : ""}`;
-              }
+          // Agent overlay
+          if (agent) {
+            if (agent.type === "CarAgent") {
+              if (agent.parked) cls = "cell cell-car-parked";
+              else if (agent.waiting) cls = "cell cell-car-waiting";
+              else cls = "cell cell-car";
+              title += ` | Car #${agent.id}${agent.parked ? " [PARKED]" : ""}${agent.waiting ? " [WAITING]" : ""}`;
+            } else if (agent.type === "PedestrianAgent") {
+              if (agent.waiting) cls = "cell cell-ped-waiting";
+              else cls = "cell cell-ped";
+              title += ` | Ped #${agent.id}${agent.crossing ? " [CROSSING]" : ""}`;
+            } else if (agent.type === "BusAgent") {
+              cls = "cell cell-bus";
+              title += ` | Bus #${agent.id}${agent.waiting ? " [WAITING]" : ""}`;
             }
-            // Traffic light glow
-            else if (light) {
-              cls += ` cell-light-${light.state}`;
-              title += ` | 🚦 ${light.state.toUpperCase()} (${light.timer})`;
-            }
-
-            cells.push(`<div class="${cls}" title="${title}"></div>`);
           }
-        }
-        container.innerHTML = cells.join("");
+          // Traffic light glow
+          else if (light) {
+            cls += ` cell-light-${light.state}`;
+            title += ` | 🚦 ${light.state.toUpperCase()} (${light.timer})`;
+          }
 
-        document.getElementById("tickCount").textContent = tick;
-      }
-
-      function renderStats(stats) {
-        document.getElementById("tickCount").textContent = stats.tick;
-        document.getElementById("carCount").textContent = stats.active_cars;
-        document.getElementById("parkedCount").textContent = stats.parked_cars;
-        document.getElementById("pedCount").textContent =
-          stats.active_pedestrians;
-        document.getElementById("busCount").textContent =
-          stats.active_buses || 0;
-        document.getElementById("waitingCount").textContent =
-          stats.waiting_cars + stats.waiting_pedestrians;
-        document.getElementById("lightCount").textContent =
-          stats.total_traffic_lights;
-      }
-
-      function startPlaying() {
-        playing = true;
-        document.getElementById("playBtn").classList.add("active");
-        playLoop();
-      }
-
-      function stopPlaying() {
-        playing = false;
-        document.getElementById("playBtn").classList.remove("active");
-        if (loopTimer) {
-          clearTimeout(loopTimer);
-          loopTimer = null;
+          cells.push(`<div class="${cls}" title="${title}"></div>`);
         }
       }
+      container.innerHTML = cells.join("");
 
-      async function playLoop() {
-        if (!playing) return;
-        await doStep();
-        loopTimer = setTimeout(playLoop, speed);
+      document.getElementById("tickCount").textContent = tick;
+    }
+
+    function renderStats(stats) {
+      document.getElementById("tickCount").textContent = stats.tick;
+      document.getElementById("carCount").textContent = stats.active_cars;
+      document.getElementById("parkedCount").textContent = stats.parked_cars;
+      document.getElementById("pedCount").textContent =
+        stats.active_pedestrians;
+      document.getElementById("busCount").textContent =
+        stats.active_buses || 0;
+      document.getElementById("waitingCount").textContent =
+        stats.waiting_cars + stats.waiting_pedestrians;
+      document.getElementById("lightCount").textContent =
+        stats.total_traffic_lights;
+    }
+
+    function startPlaying() {
+      playing = true;
+      document.getElementById("playBtn").classList.add("active");
+      playLoop();
+    }
+
+    function stopPlaying() {
+      playing = false;
+      document.getElementById("playBtn").classList.remove("active");
+      if (loopTimer) {
+        clearTimeout(loopTimer);
+        loopTimer = null;
       }
+    }
 
-      // Event listeners
-      document.getElementById("stepBtn").addEventListener("click", async () => {
+    async function playLoop() {
+      if (!playing) return;
+      await doStep();
+      loopTimer = setTimeout(playLoop, speed);
+    }
+
+    async function fetchConfig() {
+      try {
+        const config = await apiFetch(`${API_URL}/config`);
+        
+        document.getElementById("carTarget").max = config.max_cars;
+        document.getElementById("pedTarget").max = config.max_peds;
+        document.getElementById("busTarget").max = config.max_buses;
+
+        document.getElementById("carTarget").value = config.target_cars;
+        document.getElementById("pedTarget").value = config.target_peds;
+        document.getElementById("busTarget").value = config.target_buses;
+
+        updateSettingLabels();
+      } catch (err) {
+        // Error handled by apiFetch
+      }
+    }
+
+    async function updateConfig() {
+      const config = {
+        target_cars: parseInt(document.getElementById("carTarget").value),
+        target_peds: parseInt(document.getElementById("pedTarget").value),
+        target_buses: parseInt(document.getElementById("busTarget").value),
+      };
+
+      try {
+        await apiFetch(`${API_URL}/config`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(config),
+        });
+      } catch (err) {
+        // Error handled by apiFetch
+      }
+    }
+
+    function updateSettingLabels() {
+      document.getElementById("carTargetVal").textContent = document.getElementById("carTarget").value;
+      document.getElementById("pedTargetVal").textContent = document.getElementById("pedTarget").value;
+      document.getElementById("busTargetVal").textContent = document.getElementById("busTarget").value;
+    }
+
+    document.querySelectorAll(".setting-input").forEach(input => {
+      input.addEventListener("input", () => {
+        updateSettingLabels();
+        updateConfig();
+      });
+    });
+
+    // Initial fetch
+    fetchConfig();
+
+    // Event listeners
+    document.getElementById("stepBtn").addEventListener("click", async () => {
+      stopPlaying();
+      await doStep();
+    });
+
+    document.getElementById("playBtn").addEventListener("click", () => {
+      if (playing) {
         stopPlaying();
-        await doStep();
-      });
+      } else {
+        startPlaying();
+      }
+    });
 
-      document.getElementById("playBtn").addEventListener("click", () => {
-        if (playing) {
-          stopPlaying();
-        } else {
-          startPlaying();
-        }
-      });
+    document
+      .getElementById("pauseBtn")
+      .addEventListener("click", stopPlaying);
+    document.getElementById("resetBtn").addEventListener("click", doReset);
 
-      document
-        .getElementById("pauseBtn")
-        .addEventListener("click", stopPlaying);
-      document.getElementById("resetBtn").addEventListener("click", doReset);
+    document.getElementById("speed").addEventListener("input", (e) => {
+      speed = parseInt(e.target.value);
+      document.getElementById("speedVal").textContent = speed + "ms";
+    });
 
-      document.getElementById("speed").addEventListener("input", (e) => {
-        speed = parseInt(e.target.value);
-        document.getElementById("speedVal").textContent = speed + "ms";
-      });
+    // Initial render
+    (async () => {
+      try {
+        const state = await apiGet("/state");
+        renderState(state);
+        const stats = await apiGet("/stats");
+        renderStats(stats);
+      } catch (e) {
+        document.getElementById("grid").innerHTML =
+          '<p style="color:#f87171; padding:20px;">Could not connect to API. Is the backend running?</p>';
+      }
+    })();
+  </script>
+</body>
 
-      // Initial render
-      (async () => {
-        try {
-          const state = await apiGet("/state");
-          renderState(state);
-          const stats = await apiGet("/stats");
-          renderStats(stats);
-        } catch (e) {
-          document.getElementById("grid").innerHTML =
-            '<p style="color:#f87171; padding:20px;">Could not connect to API. Is the backend running?</p>';
-        }
-      })();
-    </script>
-  </body>
 </html>

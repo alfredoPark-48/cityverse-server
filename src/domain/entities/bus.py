@@ -62,6 +62,10 @@ class Bus(Agent):
                     if b.state not in [None, "Car"]:
                         can_move = False
                         break
+                elif type(b).__name__ == "Pedestrian":
+                    # Stop if blocked by a pedestrian
+                    can_move = False
+                    break
                 elif hasattr(b, "moving"):
                     # Other vehicles
                     can_move = False

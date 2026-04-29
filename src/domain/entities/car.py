@@ -2,7 +2,7 @@
 
 from mesa import Agent
 from src.application.services.graph_service import a_star_search
-from src.domain.entities.traffic_components import Road, Destination, Traffic_Light, PedestrianCrossing, Angel, Parking
+from src.domain.entities.traffic_components import Road, Destination, Traffic_Light, PedestrianCrossing, Angel, Parking, CarSpawn
 
 class Car(Agent):
     """
@@ -61,9 +61,10 @@ class Car(Agent):
             self.path = []
 
     def move(self):
-        # 1. Arrival Check
+        # 1. Arrival Logic (Immediate Despawn)
         if self.pos == self.destiny:
-            self.inDestiny = True
+            self.model.total_parked_cars += 1
+            self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
             return
 
@@ -71,21 +72,17 @@ class Car(Agent):
         if not self.path or self.intended_next_move:
             self.calculate_path()
 
-        if not self.path:
-            # If still no path, we might be stuck or at destination neighborhood
-            aroundMe = self.model.grid.get_neighbors(self.pos, moore=False, include_center=False, radius=1)
-            for neighbor in aroundMe:
-                if isinstance(neighbor, Destination) and neighbor.pos == self.destiny:
-                    next_move = neighbor.pos
-                    self.model.grid.move_agent(self, next_move)
-                    self.inDestiny = True
-                    self.model.schedule.remove(self)
-                    return
-            return
-
         # 3. Determine Next Move
-        next_move = self.path[0]
-        
+        if self.path:
+            next_move = self.path[0]
+        else:
+            # Fallback: if adjacent to destiny, move there even if not in graph
+            dist = abs(self.pos[0] - self.destiny[0]) + abs(self.pos[1] - self.destiny[1])
+            if dist == 1:
+                next_move = self.destiny
+            else:
+                return
+
         # 4. Collision Detection & Traffic Rules
         cell_contents = self.model.grid.get_cell_list_contents(next_move)
         blockers = [a for a in cell_contents if not isinstance(a, Road)]
@@ -106,8 +103,12 @@ class Car(Agent):
                 # Vehicle ahead
                 can_move = False
                 break
-            elif isinstance(b, (Destination, Angel, Parking)):
+            elif isinstance(b, (Angel, Parking, CarSpawn)):
                 pass # Non-blocking
+            elif type(b).__name__ == "Pedestrian":
+                # Stop if blocked by a pedestrian
+                can_move = False
+                break
             else:
                 can_move = False # Buildings, obstacles
                 break
@@ -115,7 +116,8 @@ class Car(Agent):
         if can_move:
             self.previous_pos = self.pos
             self.model.grid.move_agent(self, next_move)
-            self.path.pop(0)
+            if self.path:
+                self.path.pop(0)
             self.moving = True
             self.intended_next_move = None
             self._update_direction(next_move)

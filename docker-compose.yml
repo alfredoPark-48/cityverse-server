@@ -7,6 +7,6 @@ services:
       - ./data:/app/data
       - ./frontend:/app/frontend
     environment:
-      - GRID_FILE=data/2022_base.txt
+      - GRID_FILE=data/city.txt
       - TICKS_PER_SECOND=10
     restart: on-failure

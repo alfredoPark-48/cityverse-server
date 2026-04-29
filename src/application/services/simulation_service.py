@@ -43,7 +43,7 @@ class SimulationService:
         return {
             "tick":                 self._model.schedule.steps,
             "active_cars":          len(active_cars),
-            "parked_cars":          0,          # legacy model removes on arrival
+            "parked_cars":          self._model.total_parked_cars,
             "waiting_cars":         len(waiting_cars),
             "active_pedestrians":   len(pedestrians),
             "waiting_pedestrians":  0,
@@ -51,10 +51,16 @@ class SimulationService:
             "total_traffic_lights": len(lights),
         }
 
+    def set_config(self, config: dict):
+        """Update simulation configuration."""
+        print(f"DEBUG: SimulationService.set_config called with {config}")
+        self._model.set_config(config)
+
     def get_config(self) -> dict:
-        """Return static simulation configuration."""
-        return {
+        """Return simulation configuration."""
+        config = self._model.get_config()
+        config.update({
             "grid_width":  self._model.width,
             "grid_height": self._model.height,
-            "num_agents":  self._model.num_agents,
-        }
+        })
+        return config

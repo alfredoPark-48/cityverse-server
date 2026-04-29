@@ -11,10 +11,12 @@ class CellType(str, Enum):
     CROSSWALK = "crosswalk"
     BUILDING = "building"
     TRAFFIC_LIGHT = "traffic_light"
-    EMPTY = "empty"
-    ROUNDABOUT = "roundabout"
     PARKING = "parking"
-    GRASS = "grass"
+    VEGETATION = "vegetation"
+    WATER = "water"
+    ANGEL = "angel"
+    PED_SPAWN = "ped_spawn"
+    CAR_SPAWN = "car_spawn"
 
 
 class TrafficLightState(str, Enum):
@@ -31,15 +33,21 @@ CHAR_TO_CELL_TYPE: dict[str, CellType] = {
     "^": CellType.ROAD,
     ">": CellType.ROAD,
     "<": CellType.ROAD,
-    "+": CellType.ROAD, # Intersection
-    "B": CellType.SIDEWALK,
-    "S": CellType.TRAFFIC_LIGHT, # Red
-    "s": CellType.TRAFFIC_LIGHT, # Green
-    "#": CellType.BUILDING, # Obstacle
-    "D": CellType.BUILDING, # Destination
-    "A": CellType.ROUNDABOUT, # Angel
-    "Z": CellType.CROSSWALK,
-    "z": CellType.CROSSWALK,
+    "I": CellType.ROAD,  # Intersection
+    "B": CellType.BUILDING,
+    "L": CellType.BUILDING,
+    "S": CellType.SIDEWALK,
+    "P": CellType.PARKING,
+    "T": CellType.TRAFFIC_LIGHT,  # Long
+    "t": CellType.TRAFFIC_LIGHT,  # Short
+    "V": CellType.VEGETATION,  # Vegetation
+    "W": CellType.WATER,
+    "D": CellType.DESTINATION,  # Destination
+    "A": CellType.ANGEL,  # Angel
+    "X": CellType.CROSSWALK,
+    "x": CellType.CROSSWALK,
+    "p": CellType.PED_SPAWN,
+    "c": CellType.CAR_SPAWN,
 }
 
 # Characters that represent directional roads

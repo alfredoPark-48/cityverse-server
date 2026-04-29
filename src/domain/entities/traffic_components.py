@@ -44,9 +44,25 @@ class Destination(Agent):
     def step(self):
         pass
 
+class Building(Agent):
+    """Building agent. Where buildings are in the grid. Agent can arrive to the building as destination. Agent can't pass through the building."""
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
 
-class Obstacle(Agent):
-    """Obstacle agent. Just to add obstacles to the grid. Interpreted as a building in Unity."""
+    def step(self):
+        pass
+
+
+class Vegetation(Agent):
+    """Vegetation agent. Where vegetation is in the grid. Agent can't pass through the vegetation."""
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+
+    def step(self):
+        pass
+
+class Water(Agent):
+    """Water agent. Where water is in the grid. Agent can't pass through the water."""
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
 
@@ -55,7 +71,7 @@ class Obstacle(Agent):
 
 
 class Angel(Agent):
-    """Angel agent (obstacle). Interpreted as a traffic circle in Unity."""
+    """Traffic circle agent. Where traffic circles are in the grid. Agent can't pass through the traffic circle."""
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
 
@@ -83,6 +99,38 @@ class SideWalk(Agent):
 
 class Parking(Agent):
     """Parking agent. Areas where cars can park or drive through."""
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+
+    def step(self):
+        pass
+
+class Lot(Agent):
+    """Lot agent. Open spaces in the city."""
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+
+    def step(self):
+        pass
+
+class Home(Agent):
+    """Home agent. Where pedestrians can spawn or go to."""
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+
+    def step(self):
+        pass
+
+class CarSpawn(Agent):
+    """Car spawn agent. Where cars can spawn."""
+    def __init__(self, unique_id, model):
+        super().__init__(unique_id, model)
+
+    def step(self):
+        pass
+
+class PedestrianSpawn(Agent):
+    """Pedestrian spawn agent. Where pedestrians can spawn."""
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
 

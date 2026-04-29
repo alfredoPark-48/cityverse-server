@@ -25,8 +25,8 @@ def model(tmp_path):
     dict_file = tmp_path / "mapDictionary.json"
     dict_file.write_text(
         '{">" : "Right","<" : "Left","S" : 15,"s" : 7,'
-        '"#" : "Obstacle","v" : "Down","^" : "Up",'
-        '"D" : "Destination","B" : "Sidewalk","Z" : "Pedestrian",'
+        '"#" : "Vegetation","v" : "Down","^" : "Up","W" : "Water",'
+        '"D" : "Destination","B" : "Building","Z" : "Pedestrian",'
         '"z" : "Pedestrian","+" : "Intersection","A" : "Angel"}'
     )
 
