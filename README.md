@@ -1,69 +1,74 @@
-# CityVerse Traffic Simulation
+# 🌆 CityVerse Server
 
-Agent-based traffic simulation for a smart city environment, built with Mesa and FastAPI.
+CityVerse is a high-fidelity urban mobility simulation built with **Python** and **Mesa**. It models complex interactions between cars, pedestrians, and public transport in a dynamic, data-driven city environment.
 
-## Clean Architecture Structure
+This project is a refactored and significantly improved version of the original [Project-Multiagentes](https://github.com/ivalani/Project-Multiagentes).
 
-The project follows a clean architecture approach, separated into the following layers:
+---
 
-- `src/domain/entities`: Contains all core simulation agents (Cars, Buses, Pedestrians, Traffic Lights, etc.)
-- `src/application/services`: Contains algorithmic services (e.g., Graph Dijkstra Pathfinding).
-- `src/infrastructure/models`: Contains the Mesa `CityModel` which orchestrates the simulation.
-- `src/infrastructure/api`: Contains the FastAPI server for serving the simulation state to the frontend.
+## 📑 Table of Contents
+1. [Project Overview](#-project-overview)
+2. [Quick Start](#-quick-start)
+3. [Architecture Blueprint](./doc/ARCHITECTURE.md)
+4. [Agent Behaviors](./doc/AGENTS.md)
+5. [Data Structures & Algorithms](./doc/ALGORITHMS.md)
+6. [Legacy Comparison](./doc/LEGACY_COMPARISON.md)
+7. [Key Features](#-key-features)
+8. [Roadmap](#-roadmap)
 
-## Agent Documentation
+---
 
-This simulation uses a variety of agents to represent the dynamic and static components of the city.
+## 🚀 Project Overview
 
-### Moving Agents
+CityVerse evolved from a research prototype into a robust simulation engine. The primary focus of this version is **system stability**, **architectural clarity**, and **algorithmic efficiency**.
 
-1. **Car**
-   - **Role**: Simulates standard vehicle traffic.
-   - **Behavior**: Cars spawn at predefined road edges (`positions_temp`) and pick a random destination building (`Destination`). They use Dijkstra's Algorithm (`Graph.py` logic) to compute the shortest path to their destination. At intersections, they dynamically choose the next edge to travel.
-   - **Traffic Rules**: Cars will stop for red `Traffic_Light`s, yield to `Pedestrian`s at `PedestrianCrossing`s, and stop if there is another vehicle directly in front of them to prevent collisions.
+### Core Improvements
+- **Clean Architecture**: Transitioned to a decoupled 3-tier architecture (Domain, Application, Infrastructure) for better maintainability.
+- **Enhanced Navigation**: Implementation of A* pathfinding with a BFS fallback mechanism to ensure topological robustness.
+- **Multimodal Simulation**: Seamless transitions for pedestrians between walking and public transport using state-machine logic.
+- **Modular Design**: Services like spawning, navigation, and graph building are now isolated, allowing for easier testing and expansion.
 
-2. **Bus**
-   - **Role**: Simulates public transit.
-   - **Behavior**: Buses follow a hardcoded, predefined loop route `[(1,9),(6,8),(22,11)]`. They move strictly from coordinate to coordinate.
-   - **Traffic Rules**: Like cars, they respect traffic lights, pedestrian crossings, and vehicle collisions.
+---
 
-3. **Pedestrian**
-   - **Role**: Simulates foot traffic.
-   - **Behavior**: Pedestrians spawn on `SideWalk`s and wander randomly. They prioritize moving to adjacent sidewalks, crosswalks, and destinations. They keep a `visited` list to avoid walking back and forth immediately.
-   - **Traffic Rules**: Pedestrians will stop at `PedestrianCrossing`s if a car is currently occupying it, and they will wait at `Traffic_Light`s until it is safe to cross. They disappear upon reaching a `Destination`.
+## 🛠 Quick Start
 
-### Static Agents (Traffic Components)
+### Prerequisites
+- Python 3.10+
+- Docker & Docker Compose
 
-1. **Traffic_Light (S, s)**
-   - **Role**: Controls traffic flow at intersections.
-   - **Behavior**: Toggles between Green (True) and Red (False) every 15 simulation steps. Cars and buses check the state of the traffic light before proceeding into the intersection.
+### Installation
+```bash
+# Clone the repository
+git clone https://github.com/alfredoPark-48/cityverse-server.git
+cd cityverse-server
 
-2. **PedestrianCrossing (Z, z)**
-   - **Role**: Safe zones for pedestrians to cross roads.
-   - **Behavior**: Detects whether a `Car`, `Bus`, or `Pedestrian` is currently over it. If a car is over it, pedestrians wait. If a pedestrian is over it, cars wait.
+# Install dependencies
+pip install -r requirements.txt
 
-3. **Destination (D)**
-   - **Role**: The end goal for cars and pedestrians.
-   - **Behavior**: When a car or pedestrian enters a destination cell, they have "arrived" and are removed from the active simulation schedule.
+# Start the simulation server
+python run.py
+```
 
-4. **Road (v, ^, <, >, +)**
-   - **Role**: Dictates the valid paths and directions for vehicles.
-   - **Behavior**: Provides directional metadata to cars. `+` represents an intersection where cars will consult their calculated Dijkstra path.
+---
 
-5. **Obstacle (#)**
-   - **Role**: Impassable buildings or walls.
-   - **Behavior**: Purely static. Agents cannot pathfind through them.
+## ✨ Key Features
 
-6. **Angel (A)**
-   - **Role**: A roundabout obstacle.
-   - **Behavior**: Purely static, placed to force traffic to flow around a central point.
+### 1. Multimodal Intelligence
+Pedestrians dynamically evaluate the efficiency of the public transport network. They calculate potential time-savings using bus routes versus walking paths and navigate to stops accordingly.
 
-7. **SideWalk (B)**
-   - **Role**: Safe walking paths for pedestrians.
-   - **Behavior**: Purely static. Pedestrians prioritize these tiles.
+### 2. Directed Network Topology
+The simulation builds two distinct directed graphs (Road and Pedestrian) from a plain-text grid. This ensures vehicles respect one-way constraints and pedestrians stay on designated sidewalks.
 
-## Running the Simulation
+### 3. Real-Time Metrics & Analytics
+The simulation exposes a standardized API for front-end consumption, providing live stats on agent frustration, bus occupancy, and trip completion rates.
 
-1. Ensure Docker and Docker Compose are installed.
-2. Run `docker compose up --build`
-3. Navigate to `http://localhost:8000` to view the live simulation dashboard.
+---
+
+## 🛣 Roadmap
+- [ ] **AI Traffic Control**: Reinforcement learning for adaptive traffic light cycles.
+- [ ] **Weather & Environmental Factors**: Impacting agent visibility and speed.
+- [ ] **Emission Tracking**: Modeling the environmental impact of urban traffic.
+
+---
+
+> **Note**: This repository follows clean code practices and modular design patterns to provide a scalable foundation for urban mobility research.
