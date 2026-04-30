@@ -14,3 +14,4 @@ API_PORT: int = int(os.getenv("API_PORT", "8000"))
 BUS_WAIT_PENALTY: float = 20.0
 BUS_TRAVEL_COST_PER_STOP: float = 5.0
 MIN_WALK_DISTANCE_FOR_BUS: int = 15
+BUS_MAX_RIDE_TICKS: int = 300

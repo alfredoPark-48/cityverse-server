@@ -48,27 +48,43 @@ class Bus(BaseTrafficAgent):
     def move(self):
         # 1. Stop arrival logic
         if self.route:
-            target_stop = self.route[self.current_stop_index]
             neighbors = self.model.grid.get_neighborhood(self.pos, moore=False, include_center=False)
             
-            if target_stop in neighbors:
-                cell_agents = self.model.grid.get_cell_list_contents(target_stop)
+            # Find if beside ANY stop (to handle frustrated drop-offs or route targets)
+            current_target = self.route[self.current_stop_index]
+            stop_pos = None
+            if current_target in neighbors:
+                stop_pos = current_target
+            else:
+                for n in neighbors:
+                    if any(getattr(a, "is_bus_stop", False) for a in self.model.grid.get_cell_list_contents(n)):
+                        stop_pos = n
+                        break
+            
+            if stop_pos:
+                cell_agents = self.model.grid.get_cell_list_contents(stop_pos)
                 from src.domain.entities.pedestrian import Pedestrian
+                from src.shared.config import BUS_MAX_RIDE_TICKS
+                
                 pedestrians_waiting = any(isinstance(a, Pedestrian) and a.waiting_for_bus for a in cell_agents)
+                is_frustrated_present = any(p.bus_ride_ticks >= BUS_MAX_RIDE_TICKS for p in self.passengers)
                 dropoff_needed = any(abs(p.destination[0] - self.pos[0]) + abs(p.destination[1] - self.pos[1]) < 5 for p in self.passengers)
                 
-                if pedestrians_waiting or dropoff_needed:
+                # We stop if someone wants on/off, someone is frustrated, or it's our planned stop
+                if pedestrians_waiting or dropoff_needed or is_frustrated_present:
                     if self.wait_timer < self.STOP_WAIT_TIME:
-                        self.handle_passengers(target_stop)
+                        self.handle_passengers(stop_pos)
                         self.wait_timer += 1
                         self.is_moving = False
                         self.path = []
                         return
                     else:
                         self.wait_timer = 0
-                        self.current_stop_index = (self.current_stop_index + 1) % len(self.route)
+                        if stop_pos == current_target:
+                            self.current_stop_index = (self.current_stop_index + 1) % len(self.route)
                         self.path = [] 
-                else:
+                elif stop_pos == current_target:
+                    # Skip target stop if no activity
                     self.current_stop_index = (self.current_stop_index + 1) % len(self.route)
                     self.path = []
 
@@ -110,10 +126,14 @@ class Bus(BaseTrafficAgent):
     def handle_passengers(self, stop_pos, frustrated_only=False):
         # Drop off
         arrived = []
+        from src.shared.config import BUS_MAX_RIDE_TICKS
         for p in self.passengers:
             is_near = abs(p.destination[0] - self.pos[0]) + abs(p.destination[1] - self.pos[1]) < 5
-            is_frustrated = getattr(p, "bus_ride_ticks", 0) >= 200
+            is_frustrated = p.bus_ride_ticks >= BUS_MAX_RIDE_TICKS
             if (not frustrated_only and is_near) or is_frustrated:
+                if is_frustrated:
+                    p.gave_up_on_bus = True
+                    self.model.metrics["total_frustrated"] += 1
                 arrived.append(p)
         
         for p in arrived:
@@ -140,4 +160,5 @@ class Bus(BaseTrafficAgent):
                         a.waiting_for_bus = False
                         a.is_boarding = True
                         a.boarding_ticks = 0
+                        a.bus_ride_ticks = 0
                         self.model.grid.move_agent(a, self.pos)

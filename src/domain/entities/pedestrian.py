@@ -20,6 +20,7 @@ class Pedestrian(BaseTrafficAgent):
         self.bus_wait_ticks = 0
         self.is_boarding = False
         self.boarding_ticks = 0
+        self.bus_ride_ticks = 0
         self.gave_up_on_bus = False
 
     def check_bus_efficiency(self):
@@ -127,6 +128,7 @@ class Pedestrian(BaseTrafficAgent):
         if self.pos == self.destination:
             self.has_arrived = True
             self.model.metrics["completed_trips"] += 1
+            self.model.total_arrived_peds += 1
             self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
             return
@@ -139,7 +141,7 @@ class Pedestrian(BaseTrafficAgent):
                 self.waiting_for_bus = False
                 self.target_bus_stop = None
                 self.gave_up_on_bus = True
-                self.model.metrics["frustrated_pedestrians"] += 1
+                self.model.metrics["total_frustrated"] += 1
                 self.path = []
                 self.bus_wait_ticks = 0
             else:
@@ -175,7 +177,7 @@ class Pedestrian(BaseTrafficAgent):
             self.wait_ticks += 1
             if self.wait_ticks > 40:
                 if self.wait_ticks % 20 == 0:
-                    self.model.metrics["frustrated_pedestrians"] += 1
+                    self.model.metrics["total_frustrated"] += 1
             
             # Randomly clear path to try a new route if stuck
             if self.random.random() < 0.1:
@@ -187,9 +189,11 @@ class Pedestrian(BaseTrafficAgent):
             if self.boarding_ticks >= 3:
                 if self.pos:
                     self.model.grid.remove_agent(self)
+                self.is_boarding = False
             return
 
         if self.on_bus:
+            self.bus_ride_ticks += 1
             return
             
         super().step()

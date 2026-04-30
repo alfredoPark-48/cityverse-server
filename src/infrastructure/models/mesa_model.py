@@ -71,16 +71,17 @@ class CityModel(Model):
         self.max_cars, self.max_peds, self.max_buses = 100, 250, 16
 
         # Statistics & Metrics
-        self.total_parked_cars = 0
-        self.total_parked_peds = 0
+        self.total_arrived_cars = 0
+        self.total_arrived_peds = 0
         self.metrics = {
             "total_passengers": 0,
-            "frustrated_pedestrians": 0,
+            "total_frustrated": 0,
             "crashes": 0,
             "completed_trips": 0,
             "avg_bus_occupancy": 0,
         }
 
+        self.regenerate_agents = False
         self.running = True
         self.replenish_agents()
 
@@ -98,12 +99,24 @@ class CityModel(Model):
 
     def step(self):
         """Advance the simulation by one step."""
+        if not self.running:
+            return
+
         if self.schedule.steps % 15 == 0:
             for agent in self.traffic_lights:
                 agent.state = not agent.state
 
+        if self.regenerate_agents:
+            self.replenish_agents()
+
         self.schedule.step()
         self._calculate_crashes()
+
+        # Auto-stop if no active agents left and not in regenerating mode
+        if not self.regenerate_agents:
+            active_agents = [a for a in self.schedule.agents if type(a).__name__ in ["Car", "Pedestrian"]]
+            if not active_agents:
+                self.running = False
 
     def _calculate_crashes(self):
         """Monitors vehicle collisions."""
@@ -162,6 +175,7 @@ class CityModel(Model):
             "max_cars": self.max_cars,
             "max_peds": self.max_peds,
             "max_buses": self.max_buses,
+            "regenerate_agents": self.regenerate_agents,
         }
 
     def set_config(self, config: dict):
@@ -172,6 +186,8 @@ class CityModel(Model):
                     key,
                     min(int(config[key]), getattr(self, f"max_{key.split('_')[1]}")),
                 )
+        if "regenerate_agents" in config:
+            self.regenerate_agents = bool(config["regenerate_agents"])
         self.replenish_agents()
 
     def get_state_snapshot(self) -> dict:
@@ -251,6 +267,7 @@ class CityModel(Model):
 
         return {
             "tick": self.schedule.steps,
+            "running": self.running,
             "agents": agents_data,
             "traffic_lights": lights_data,
             "grid_width": self.width,
@@ -264,9 +281,11 @@ class CityModel(Model):
                     [a for a in self.schedule.agents if isinstance(a, Pedestrian)]
                 ),
                 "active_buses": len(active_buses),
-                "parked_cars": self.total_parked_cars,
+                "arrived_cars": self.total_arrived_cars,
+                "arrived_peds": self.total_arrived_peds,
                 "total_passengers": self.metrics["total_passengers"],
-                "frustrated_peds": self.metrics["frustrated_pedestrians"],
+                "active_passengers": sum(len(b.passengers) for b in active_buses),
+                "total_frustrated": self.metrics["total_frustrated"],
                 "crashes": self.metrics["crashes"],
                 "completed_trips": self.metrics["completed_trips"],
                 "bus_occupancy": self.metrics["avg_bus_occupancy"],

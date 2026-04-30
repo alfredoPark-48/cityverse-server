@@ -69,15 +69,19 @@ class GraphService:
                         nc = matrix[ny][nx]
                         if nc not in road_chars: continue
 
-                        can_move = False
-                        if c in ["I", "T", "t", "X", "x", "A", "D", "P", "c", "1", "2", "3", "4"]:
-                            if nc in road_chars or nc == move_dir: can_move = True
-                        elif c == move_dir:
-                            if nc in ["I", "T", "t", "X", "x", "A", "D", "P", "c", "1", "2", "3", "4"] or nc == move_dir: can_move = True
+                        can_move = True
                         
-                        # Special case: allow pulling into/out of bus stops from/to any adjacent road cell
-                        if (nc in ["1", "2", "3", "4"] or c in ["1", "2", "3", "4"]) and nc in road_chars:
-                            can_move = True
+                        # Rule 1: If current cell is a directional road, we must move in its direction
+                        if c in ["v", "^", ">", "<"] and c != move_dir:
+                            can_move = False
+                            
+                        # Rule 2: If target cell is a directional road, we must enter in its direction
+                        # (Only blocks entering from the exact opposite direction, allows lateral entry)
+                        if can_move and nc in ["v", "^", ">", "<"]:
+                            if nc in ["^", "v"] and move_dir in ["^", "v"] and nc != move_dir:
+                                can_move = False
+                            elif nc in ["<", ">"] and move_dir in ["<", ">"] and nc != move_dir:
+                                can_move = False
 
                         if can_move:
                             target = (ny, nx)

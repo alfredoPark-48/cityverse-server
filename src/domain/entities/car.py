@@ -33,7 +33,7 @@ class Car(BaseTrafficAgent):
         # 1. Check Arrival
         if self.pos == self.destination:
             self.has_arrived = True
-            self.model.total_parked_cars += 1
+            self.model.total_arrived_cars += 1
             self.model.grid.remove_agent(self)
             self.model.schedule.remove(self)
             return
