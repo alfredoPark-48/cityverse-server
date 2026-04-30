@@ -56,13 +56,6 @@ class Car(BaseTrafficAgent):
         # 3. Collision & Traffic Rules
         is_blocked = NavigationService.is_cell_blocked(self.model, next_move, "Car", self)
         
-        # Intersection Exception: Don't stop if already at an intersection/light
-        if is_blocked:
-            current_cell_agents = self.model.grid.get_cell_list_contents(self.pos)
-            at_intersection = any(isinstance(a, Traffic_Light) or (isinstance(a, Road) and a.direction == "Intersection") for a in current_cell_agents)
-            if at_intersection:
-                is_blocked = False
-
         if not is_blocked:
             self.previous_pos = self.pos
             self.model.grid.move_agent(self, next_move)

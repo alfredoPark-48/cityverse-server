@@ -41,22 +41,39 @@ class NavigationService:
     @staticmethod
     def is_cell_blocked(model, pos, agent_type, self_agent=None):
         """Checks if a cell is blocked by other agents or traffic rules."""
-        from src.domain.entities.traffic_components import Road, Traffic_Light, PedestrianCrossing, Angel, Parking, CarSpawn
-        
         cell_contents = model.grid.get_cell_list_contents(pos)
-        blockers = [a for a in cell_contents if a != self_agent and not isinstance(a, Road)]
         
+        # Filter blockers, avoiding Road agents. 
+        # Using string names for robust type checking across potential reloads.
+        blockers = [a for a in cell_contents if a != self_agent and type(a).__name__ != "Road"]
+        
+        # Intersection logic: if we are already in an intersection or crossing, we shouldn't stop for red lights
+        is_already_in_intersection = False
+        if self_agent and getattr(self_agent, "pos", None):
+            current_contents = model.grid.get_cell_list_contents(self_agent.pos)
+            for a in current_contents:
+                a_type = type(a).__name__
+                # If we are on a light, a crossing, or a road segment explicitly marked as Intersection
+                if a_type in ["Traffic_Light", "PedestrianCrossing"]:
+                    is_already_in_intersection = True
+                    break
+                if a_type == "Road" and getattr(a, "direction", "") == "Intersection":
+                    is_already_in_intersection = True
+                    break
+
         for b in blockers:
-            if isinstance(b, Traffic_Light):
-                if not b.state: # Red light
-                    # Can't enter if it's red, unless we're already "inside" (intersection logic)
+            b_type = type(b).__name__
+            if b_type == "Traffic_Light":
+                if not getattr(b, "state", True): # Red light
+                    # Can't enter if it's red, unless we're already "inside"
+                    if not is_already_in_intersection:
+                        return True
+            elif b_type == "PedestrianCrossing":
+                if getattr(b, "state", None) not in [None, agent_type]:
                     return True
-            elif isinstance(b, PedestrianCrossing):
-                if b.state not in [None, agent_type]:
-                    return True
-            elif type(b).__name__ in ["Car", "Bus", "Pedestrian"]:
+            elif b_type in ["Car", "Bus", "Pedestrian"]:
                 return True
-            elif isinstance(b, (Angel, Parking, CarSpawn)):
+            elif b_type in ["Angel", "Parking", "CarSpawn"]:
                 continue
             else:
                 return True # Buildings, etc.
