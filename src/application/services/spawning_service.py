@@ -48,24 +48,34 @@ class SpawningService:
     def replenish_buses(model):
         active_buses = [a for a in model.schedule.agents if isinstance(a, Bus)]
         
-        # 1. Ensure coverage
-        active_route_ids = [getattr(b, "route_id", None) for b in active_buses]
+        # Count buses per route to distribute them across available stops
+        route_counts = {rid: 0 for rid in model.bus_routes}
+        for b in active_buses:
+            if b.route_id in route_counts:
+                route_counts[b.route_id] += 1
+
+        # 1. Ensure coverage (at least one bus per route)
         for rid in model.bus_routes:
-            if rid not in active_route_ids and model.bus_routes[rid]:
-                b = Bus(str(uuid.uuid4()), model, rid)
-                pos = model._bus_spawn_pos(rid)
+            if route_counts[rid] == 0 and model.bus_routes[rid]:
+                # Start at the first stop
+                b = Bus(str(uuid.uuid4()), model, rid, start_stop_index=0)
+                pos = model._bus_spawn_pos(rid, 0)
                 model.schedule.add(b)
                 model.grid.place_agent(b, pos)
                 active_buses.append(b)
+                route_counts[rid] += 1
 
-        # 2. Scale
+        # 2. Scale to target population
         while len(active_buses) < model.target_buses:
-            route_counts = {rid: 0 for rid in model.bus_routes}
-            for b in active_buses:
-                route_counts[b.route_id] += 1
+            # Pick the route with the fewest buses
             target_rid = min(route_counts, key=route_counts.get)
-            b = Bus(str(uuid.uuid4()), model, target_rid)
-            pos = model._bus_spawn_pos(target_rid)
+            
+            # The next bus on this route starts at the next available stop
+            stop_idx = route_counts[target_rid]
+            b = Bus(str(uuid.uuid4()), model, target_rid, start_stop_index=stop_idx)
+            pos = model._bus_spawn_pos(target_rid, stop_idx)
+            
             model.schedule.add(b)
             model.grid.place_agent(b, pos)
             active_buses.append(b)
+            route_counts[target_rid] += 1

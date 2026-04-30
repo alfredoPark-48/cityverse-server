@@ -30,6 +30,9 @@ def model(tmp_path):
         '"z" : "Pedestrian","+" : "Intersection","A" : "Angel"}'
     )
 
+    routes_file = tmp_path / "bus_routes.json"
+    routes_file.write_text('{"Route1": [[1, 1], [2, 2]]}')
+
     # Patch config path so CityModel finds the dictionary next to the map
     with patch("src.infrastructure.models.mesa_model.GRID_FILE_PATH", str(map_file)):
         with patch("os.path.dirname", return_value=str(tmp_path)):

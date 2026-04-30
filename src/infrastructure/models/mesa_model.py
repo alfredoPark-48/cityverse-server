@@ -68,7 +68,8 @@ class CityModel(Model):
         self.target_cars = target_cars
         self.target_peds = target_peds
         self.target_buses = target_buses
-        self.max_cars, self.max_peds, self.max_buses = 100, 250, 16
+        self.max_cars, self.max_peds = 100, 250
+        self.max_buses = sum(len(stops) for stops in self.bus_routes.values())
 
         # Statistics & Metrics
         self.total_arrived_cars = 0
@@ -79,6 +80,7 @@ class CityModel(Model):
             "crashes": 0,
             "completed_trips": 0,
             "avg_bus_occupancy": 0,
+            "safety_retreats": 0,
         }
 
         self.regenerate_agents = False
@@ -134,12 +136,12 @@ class CityModel(Model):
         SpawningService.replenish_pedestrians(self)
         SpawningService.replenish_buses(self)
 
-    def _bus_spawn_pos(self, route_id: str) -> tuple[int, int]:
-        """Finds a valid bus spawn point adjacent to the first stop, prioritizing directional roads."""
+    def _bus_spawn_pos(self, route_id: str, stop_index: int = 0) -> tuple[int, int]:
+        """Finds a valid bus spawn point adjacent to a specific stop index, prioritizing directional roads."""
         route = self.bus_routes.get(route_id)
         if not route:
             return (0, 0)
-        stop_pos = route[0]
+        stop_pos = route[stop_index % len(route)]
         neighbors = self.grid.get_neighborhood(
             stop_pos, moore=False, include_center=False
         )
@@ -259,7 +261,7 @@ class CityModel(Model):
 
         active_buses = [a for a in self.schedule.agents if isinstance(a, Bus)]
         avg_occ = (
-            sum(len(b.passengers) for b in active_buses) / len(active_buses)
+            self.metrics["total_passengers"] / len(active_buses)
             if active_buses
             else 0
         )
@@ -289,5 +291,6 @@ class CityModel(Model):
                 "crashes": self.metrics["crashes"],
                 "completed_trips": self.metrics["completed_trips"],
                 "bus_occupancy": self.metrics["avg_bus_occupancy"],
+                "safety_retreats": self.metrics["safety_retreats"],
             },
         }

@@ -1080,6 +1080,13 @@
           <div class="dash-label">Crashes</div>
         </div>
       </div>
+      <div class="dash-card accent-blue">
+        <div class="dash-icon">🛡️</div>
+        <div class="dash-content">
+          <div class="dash-value" id="safetyRetreats">0</div>
+          <div class="dash-label">Safety Retreats</div>
+        </div>
+      </div>
 
       <!-- Population Group -->
       <div class="dash-card accent-orange">
@@ -1453,6 +1460,7 @@
       if (stats.active_passengers !== undefined) document.getElementById("activePassengers").textContent = stats.active_passengers;
       if (stats.total_frustrated !== undefined) document.getElementById("totalFrustrated").textContent = stats.total_frustrated;
       if (stats.crashes !== undefined) document.getElementById("crashCount").textContent = stats.crashes;
+      if (stats.safety_retreats !== undefined) document.getElementById("safetyRetreats").textContent = stats.safety_retreats;
 
       // Old metrics integration
       if (stats.active_cars !== undefined) document.getElementById("carCount").textContent = stats.active_cars;

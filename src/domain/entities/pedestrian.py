@@ -2,7 +2,7 @@
 
 from src.domain.entities.base import BaseTrafficAgent
 from src.application.services.navigation_service import NavigationService
-from src.domain.entities.traffic_components import SideWalk, Traffic_Light, PedestrianCrossing, Building, Vegetation, Water, Parking, Lot, Home
+from src.domain.entities.traffic_components import SideWalk, Traffic_Light, PedestrianCrossing, Building, Vegetation, Water, Parking, Lot, Home, PedestrianSpawn, Destination
 from src.shared.config import BUS_WAIT_PENALTY, BUS_TRAVEL_COST_PER_STOP, MIN_WALK_DISTANCE_FOR_BUS
 
 class Pedestrian(BaseTrafficAgent):
@@ -110,19 +110,63 @@ class Pedestrian(BaseTrafficAgent):
         else:
             self.path = []
 
+    def _is_safe_standing_cell(self, pos):
+        """Determines if a cell is a safe standing area for pedestrians."""
+        cell_agents = self.model.grid.get_cell_list_contents(pos)
+        
+        # A cell is unsafe if it contains a green traffic light (dangerous for peds)
+        for a in cell_agents:
+            if isinstance(a, Traffic_Light) and a.state: # state=True means Green for cars
+                return False
+                
+        # Cell is safe if it contains a sidewalk or other designated pedestrian area
+        safe_types = (SideWalk, Parking, Lot, Home, PedestrianSpawn, Destination, Building)
+        return any(isinstance(a, safe_types) for a in cell_agents)
+
+    def _handle_emergency_backtracking(self):
+        """Check if caught in a dangerous zone and retreat to safety if necessary."""
+        if not self.pos:
+            return False
+
+        # 1. Identify danger: Are we on a green traffic light?
+        current_agents = self.model.grid.get_cell_list_contents(self.pos)
+        is_on_green_light = any(isinstance(a, Traffic_Light) and a.state for a in current_agents)
+        
+        if not is_on_green_light:
+            return False
+
+        # 2. We are in danger! Find the nearest safe cell to retreat to.
+        # Strategy A: Try previous position first (most likely safe)
+        if self.previous_pos and self._is_safe_standing_cell(self.previous_pos):
+            self.model.grid.move_agent(self, self.previous_pos)
+            self.model.metrics["safety_retreats"] += 1
+            self.path = [] # Clear path to recalculate from safety
+            self.is_moving = False
+            return True
+
+        # Strategy B: Search immediate neighborhood for any safe standing cell
+        neighbors = self.model.grid.get_neighborhood(self.pos, moore=True, include_center=False)
+        # Sort neighbors by distance to current pos (though all are distance 1 in moore)
+        safe_spots = [n for n in neighbors if self._is_safe_standing_cell(n)]
+        
+        if safe_spots:
+            # Move to the first available safe spot
+            self.model.grid.move_agent(self, safe_spots[0])
+            self.model.metrics["safety_retreats"] += 1
+            self.path = []
+            self.is_moving = False
+            return True
+            
+        return False
+
     def move(self):
+        """Main movement logic for the pedestrian agent."""
         if self.on_bus or self.is_boarding:
             return
 
-        # 0. Backtracking Logic: If caught on a green light (car-phase), retreat to safety
-        current_cell_agents = self.model.grid.get_cell_list_contents(self.pos)
-        for a in current_cell_agents:
-            if type(a).__name__ == "Traffic_Light" and getattr(a, "state", False):
-                if self.previous_pos:
-                    self.model.grid.move_agent(self, self.previous_pos)
-                    self.path = []
-                    self.is_moving = False
-                    return
+        # 0. Safety First: Backtrack if caught on a green light
+        if self._handle_emergency_backtracking():
+            return
 
         # 1. Arrival Logic
         if self.pos == self.destination:
@@ -166,6 +210,7 @@ class Pedestrian(BaseTrafficAgent):
         is_blocked = NavigationService.is_cell_blocked(self.model, next_move, "Pedestrian", self)
         
         if not is_blocked:
+            self.previous_pos = self.pos
             self.model.grid.move_agent(self, next_move)
             if self.path:
                 self.path.pop(0)
