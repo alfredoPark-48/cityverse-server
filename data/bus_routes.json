@@ -1,0 +1,43 @@
+{
+  "_comment": "Bus route stop definitions. Each list contains [x, y] coordinates in Mesa grid space (origin bottom-left). Stops are listed in the exact traversal order the bus will loop through — no runtime sorting is performed. Add, remove, or reorder entries here to change a route without touching any Python code.",
+  "1": [
+    [12, 45],
+    [26, 45],
+    [42, 45],
+    [54, 45],
+    [47, 54],
+    [34, 54],
+    [17, 54],
+    [5, 54]
+  ],
+  "2": [
+    [54, 32],
+    [42, 32],
+    [26, 32],
+    [12, 32],
+    [5,  42],
+    [17, 42],
+    [34, 42],
+    [47, 42]
+  ],
+  "3": [
+    [47, 26],
+    [54, 16],
+    [42, 16],
+    [26, 16],
+    [12, 16],
+    [5,  26],
+    [17, 26],
+    [34, 26]
+  ],
+  "4": [
+    [12, 4],
+    [26, 4],
+    [42, 4],
+    [54, 4],
+    [47, 13],
+    [34, 13],
+    [17, 13],
+    [5, 13]
+  ]
+}

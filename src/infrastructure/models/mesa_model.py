@@ -1,147 +1,175 @@
-"""Mesa CityModel – the core simulation model."""
+"""Mesa CityModel refactored for Clean Architecture."""
 
-from __future__ import annotations
-
-import random
-
-import mesa
+from mesa import Model
 from mesa.time import RandomActivation
+from mesa.space import MultiGrid
+import json
+import os
 
-from src.application.services.pathfinding_service import PathfindingService
-from src.domain.entities.building import Building
-from src.domain.entities.car_agent import CarAgent
-from src.domain.entities.pedestrian_agent import PedestrianAgent
-from src.domain.entities.traffic_light import TrafficLight
-from src.domain.value_objects.grid_cell import GridCell
-from src.domain.value_objects.position import Position
-from src.infrastructure.persistence.grid_repository import GridData, GridRepository
-from src.shared.config import GRID_FILE_PATH, MAX_CARS, MAX_PEDESTRIANS
+from src.domain.entities import Car, Pedestrian, Bus, Traffic_Light
+from src.shared.config import GRID_FILE_PATH, BUS_ROUTES_FILE_PATH
+from src.infrastructure.persistence.grid_loader import GridLoader
+from src.application.services.graph_service import GraphService
+from src.application.services.spawning_service import SpawningService
 
 
-class CityModel(mesa.Model):
-    """Agent-based city traffic simulation model."""
+class CityModel(Model):
+    """
+    Core simulation model orchestrating agents and environment.
+    """
 
     def __init__(self, grid_file: str | None = None) -> None:
         super().__init__()
+        self.grid_file = grid_file or GRID_FILE_PATH
+        
+        # Load environment configuration
+        map_dict_path = os.path.join(os.path.dirname(GRID_FILE_PATH), "mapDictionary.json")
+        dataDictionary = GridLoader.load_map_dictionary(map_dict_path)
+
+        # Build graphs
+        self.list_of_edges, self.road_graph, self.ped_graph = GraphService.build_graphs(self.grid_file)
+        
+        # Initialize grid and schedule
+        with open(self.grid_file) as f:
+            lines = f.readlines()
+        self.width = len(lines[0].strip())
+        self.height = len(lines)
+        self.grid = MultiGrid(self.width, self.height, torus=False)
         self.schedule = RandomActivation(self)
 
-        repo = GridRepository()
-        self.grid_data: GridData = repo.load(grid_file or GRID_FILE_PATH)
+        # Load grid agents and metadata
+        _, _, temp_data = GridLoader.parse_grid_file(self, self.grid_file, dataDictionary)
+        
+        # Map metadata to model properties
+        self.positions_temp = temp_data["positions"]
+        self.pedPos_temp = temp_data["ped_positions"]
+        self.destinys_temp = temp_data["destinations"]
+        self.parking_temp = temp_data["parking"]
+        self.car_spawns_temp = temp_data["car_spawns"]
+        self.ped_spawns_temp = temp_data["ped_spawns"]
+        self.traffic_lights = temp_data["traffic_lights"]
 
-        # Grid accessors
-        self.grid: list[list[GridCell]] = self.grid_data.grid
-        self.grid_width: int = self.grid_data.width
-        self.grid_height: int = self.grid_data.height
-
-        # Domain objects
-        self.traffic_lights: list[TrafficLight] = self.grid_data.traffic_lights
-        self.buildings: list[Building] = self.grid_data.buildings
-        self.roundabout_cells: list[Position] = self.grid_data.roundabout_cells
-        self.car_spawns: list[Position] = self.grid_data.car_spawns
-        self.ped_spawns: list[Position] = self.grid_data.ped_spawns
-
-        # Simulation state
-        self.max_cars: int = MAX_CARS
-        self.max_peds: int = MAX_PEDESTRIANS
-        self.tick: int = 0
-        self._next_id: int = 0
-
-        # Pathfinding service
-        self.pathfinder = PathfindingService(
-            self.grid, self.grid_width, self.grid_height
-        )
-
-        # Traffic light lookup by position for fast queries
-        self._light_map: dict[tuple[int, int], TrafficLight] = {
-            (tl.position.x, tl.position.y): tl for tl in self.traffic_lights
+        # Bus Route Initialization
+        self.bus_routes = self._load_bus_routes()
+        
+        # Simulation Settings
+        self.target_cars = 30
+        self.target_peds = 30
+        self.target_buses = 4
+        self.max_cars, self.max_peds, self.max_buses = 100, 250, 16
+        
+        # Statistics & Metrics
+        self.total_parked_cars = 0
+        self.total_parked_peds = 0
+        self.metrics = {
+            "total_passengers": 0,
+            "frustrated_pedestrians": 0,
+            "near_misses": 0,
+            "completed_trips": 0,
+            "avg_bus_occupancy": 0
         }
 
-        # Initial spawn
-        self._spawn_agents()
+        self.running = True
+        self.replenish_agents()
 
-    def _get_next_id(self) -> int:
-        """Generate a unique agent ID."""
-        self._next_id += 1
-        return self._next_id
+    def _load_bus_routes(self):
+        routes_path = os.path.join(os.path.dirname(GRID_FILE_PATH), os.path.basename(BUS_ROUTES_FILE_PATH))
+        with open(routes_path, "r") as rf:
+            raw_routes = json.load(rf)
+        return {rid: [tuple(coord) for coord in stops] for rid, stops in raw_routes.items() if not rid.startswith("_")}
 
-    def _spawn_agents(self) -> None:
-        """Spawn initial cars and pedestrians up to limits."""
-        self._spawn_cars()
-        self._spawn_pedestrians()
-
-    def _spawn_cars(self) -> None:
-        """Spawn cars up to max_cars at random car spawn points."""
-        current_cars = sum(
-            1 for a in self.schedule.agents if isinstance(a, CarAgent)
-        )
-        while current_cars < self.max_cars and self.car_spawns:
-            spawn = random.choice(self.car_spawns)
-            car = CarAgent(self._get_next_id(), self, spawn)
-            self.schedule.add(car)
-            current_cars += 1
-
-    def _spawn_pedestrians(self) -> None:
-        """Spawn pedestrians up to max_peds at random ped spawn points."""
-        current_peds = sum(
-            1 for a in self.schedule.agents if isinstance(a, PedestrianAgent)
-        )
-        while current_peds < self.max_peds and self.ped_spawns:
-            spawn = random.choice(self.ped_spawns)
-            ped = PedestrianAgent(self._get_next_id(), self, spawn)
-            self.schedule.add(ped)
-            current_peds += 1
-
-    def get_cell(self, x: int, y: int) -> GridCell | None:
-        """Get a grid cell by coordinates, or None if out of bounds."""
-        if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
-            return self.grid[y][x]
-        return None
-
-    def get_traffic_light_at(self, x: int, y: int) -> TrafficLight | None:
-        """Get traffic light at the given position, if any."""
-        return self._light_map.get((x, y))
-
-    def step(self) -> None:
-        """Advance the simulation by one tick."""
-        self.tick += 1
-
-        # Update traffic lights
-        for light in self.traffic_lights:
-            light.update()
-
-        # Step all agents
+    def step(self):
+        """Advance the simulation by one step."""
+        if self.schedule.steps % 15 == 0:
+            for agent in self.traffic_lights:
+                agent.state = not agent.state
+        
         self.schedule.step()
+        self.replenish_agents()
 
-        # Respawn agents if below limits
-        self._spawn_cars()
-        self._spawn_pedestrians()
+    def replenish_agents(self):
+        """Orchestrate agent spawning via SpawningService."""
+        SpawningService.replenish_cars(self)
+        SpawningService.replenish_pedestrians(self)
+        SpawningService.replenish_buses(self)
+
+    def _bus_spawn_pos(self, route_id: str) -> tuple[int, int]:
+        """Utility for finding a valid bus spawn (Logic preserved from legacy)."""
+        route = self.bus_routes.get(route_id)
+        if not route: return (0, 0)
+        stop_pos = route[0]
+        neighbors = self.grid.get_neighborhood(stop_pos, moore=False, include_center=False)
+        valid_candidates = [n for n in neighbors if (n[1], n[0]) in self.road_graph]
+        return valid_candidates[0] if valid_candidates else stop_pos
+
+    def get_config(self) -> dict:
+        return {
+            "target_cars": self.target_cars,
+            "target_peds": self.target_peds,
+            "target_buses": self.target_buses,
+            "max_cars": self.max_cars,
+            "max_peds": self.max_peds,
+            "max_buses": self.max_buses
+        }
+
+    def set_config(self, config: dict):
+        for key in ["target_cars", "target_peds", "target_buses"]:
+            if key in config:
+                setattr(self, key, min(int(config[key]), getattr(self, f"max_{key.split('_')[1]}")))
 
     def get_state_snapshot(self) -> dict:
-        """Return full simulation state for API serialization."""
+        """Returns a snapshot of the simulation state for the frontend."""
         agents_data = []
-        for agent in self.schedule.agents:
-            if hasattr(agent, "to_dict"):
-                agents_data.append(agent.to_dict())
+        lights_data = []
 
-        lights_data = [tl.to_dict() for tl in self.traffic_lights]
+        for agent in self.schedule.agents:
+            if isinstance(agent, Car):
+                agents_data.append({
+                    "id": agent.unique_id, "x": agent.pos[0] if agent.pos else -1, "y": agent.pos[1] if agent.pos else -1,
+                    "type": "CarAgent", "has_arrived": agent.has_arrived, "parked": agent.has_arrived,
+                    "waiting": not agent.is_moving, "destination": {"x": agent.destination[0], "y": agent.destination[1]} if agent.destination else None,
+                })
+            elif isinstance(agent, Pedestrian):
+                agents_data.append({
+                    "id": agent.unique_id, "x": agent.pos[0] if agent.pos else -1, "y": agent.pos[1] if agent.pos else -1,
+                    "type": "PedestrianAgent", "has_arrived": agent.has_arrived, "crossing": False,
+                    "waiting": not agent.is_moving, "is_boarding": getattr(agent, "is_boarding", False), "despawned": agent.has_arrived,
+                })
+            elif isinstance(agent, Bus):
+                agents_data.append({
+                    "id": agent.unique_id, "x": agent.pos[0] if agent.pos else -1, "y": agent.pos[1] if agent.pos else -1,
+                    "type": "BusAgent", "waiting": not agent.is_moving, "passenger_count": len(agent.passengers),
+                    "route_id": agent.route_id, "route_index": agent.current_stop_index,
+                })
+            elif isinstance(agent, Traffic_Light):
+                lights_data.append({
+                    "id": agent.unique_id, "x": agent.pos[0] if agent.pos else -1, "y": agent.pos[1] if agent.pos else -1,
+                    "direction": "N", "state": "green" if agent.state else "red", "timer": agent.timeToChange,
+                })
+
+        with open(self.grid_file) as f:
+            grid_lines = [list(line.strip()) for line in f.readlines()]
+            grid_lines.reverse()
+
+        active_buses = [a for a in self.schedule.agents if isinstance(a, Bus)]
+        avg_occ = sum(len(b.passengers) for b in active_buses) / len(active_buses) if active_buses else 0
+        self.metrics["avg_bus_occupancy"] = round(avg_occ, 1)
 
         return {
-            "tick": self.tick,
+            "tick": self.schedule.steps,
             "agents": agents_data,
             "traffic_lights": lights_data,
-            "grid_width": self.grid_width,
-            "grid_height": self.grid_height,
-            "grid": [
-                [cell.raw_char for cell in row]
-                for row in self.grid
-            ],
+            "grid_width": self.width,
+            "grid_height": self.height,
+            "grid": grid_lines,
+            "stats": {
+                "active_cars": len([a for a in self.schedule.agents if isinstance(a, Car)]),
+                "active_peds": len([a for a in self.schedule.agents if isinstance(a, Pedestrian)]),
+                "active_buses": len(active_buses),
+                "parked_cars": self.total_parked_cars,
+                "total_passengers": self.metrics["total_passengers"],
+                "frustrated_peds": self.metrics["frustrated_pedestrians"],
+                "completed_trips": self.metrics["completed_trips"],
+                "bus_occupancy": self.metrics["avg_bus_occupancy"]
+            }
         }
-
-    def __repr__(self) -> str:
-        return (
-            f"CityModel(grid={self.grid_width}x{self.grid_height}, "
-            f"lights={len(self.traffic_lights)}, "
-            f"buildings={len(self.buildings)}, "
-            f"agents={len(self.schedule.agents)}, "
-            f"tick={self.tick})"
-        )
