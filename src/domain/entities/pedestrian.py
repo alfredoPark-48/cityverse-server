@@ -75,6 +75,16 @@ class Pedestrian(BaseTrafficAgent):
         if self.on_bus or self.is_boarding:
             return
 
+        # 0. Backtracking Logic: If caught on a green light (car-phase), retreat to safety
+        current_cell_agents = self.model.grid.get_cell_list_contents(self.pos)
+        for a in current_cell_agents:
+            if type(a).__name__ == "Traffic_Light" and getattr(a, "state", False):
+                if self.previous_pos:
+                    self.model.grid.move_agent(self, self.previous_pos)
+                    self.path = []
+                    self.is_moving = False
+                    return
+
         # 1. Arrival Logic
         if self.pos == self.destination:
             self.has_arrived = True
@@ -91,6 +101,7 @@ class Pedestrian(BaseTrafficAgent):
                 self.waiting_for_bus = False
                 self.target_bus_stop = None
                 self.gave_up_on_bus = True
+                self.model.metrics["frustrated_pedestrians"] += 1
                 self.path = []
                 self.bus_wait_ticks = 0
             else:
@@ -119,9 +130,15 @@ class Pedestrian(BaseTrafficAgent):
             if self.path:
                 self.path.pop(0)
             self.is_moving = True
+            self.wait_ticks = 0
             self._update_direction(next_move)
         else:
             self.is_moving = False
+            self.wait_ticks += 1
+            if self.wait_ticks > 40:
+                if self.wait_ticks % 20 == 0:
+                    self.model.metrics["frustrated_pedestrians"] += 1
+            
             # Randomly clear path to try a new route if stuck
             if self.random.random() < 0.1:
                 self.path = []

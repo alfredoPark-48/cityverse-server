@@ -52,7 +52,7 @@ class GraphService:
         ped_graph = {}
         road_edges = []
 
-        road_chars = ["v", "^", ">", "<", "I", "T", "t", "X", "x", "D", "A", "P", "L", "c"]
+        road_chars = ["v", "^", ">", "<", "I", "T", "t", "X", "x", "D", "A", "P", "c", "1", "2", "3", "4"]
         ped_chars = ["S", "X", "x", "D", "T", "t", "P", "p", "c", "1", "2", "3", "4"]
 
         for y in range(rows):
@@ -70,10 +70,14 @@ class GraphService:
                         if nc not in road_chars: continue
 
                         can_move = False
-                        if c == "c" or (c in ["I", "T", "t", "X", "x", "A", "D", "P"]):
+                        if c in ["I", "T", "t", "X", "x", "A", "D", "P", "c", "1", "2", "3", "4"]:
                             if nc in road_chars or nc == move_dir: can_move = True
                         elif c == move_dir:
-                            if nc in ["I", "T", "t", "X", "x", "A", "D", "P", "c"] or nc == move_dir: can_move = True
+                            if nc in ["I", "T", "t", "X", "x", "A", "D", "P", "c", "1", "2", "3", "4"] or nc == move_dir: can_move = True
+                        
+                        # Special case: allow pulling into/out of bus stops from/to any adjacent road cell
+                        if (nc in ["1", "2", "3", "4"] or c in ["1", "2", "3", "4"]) and nc in road_chars:
+                            can_move = True
 
                         if can_move:
                             target = (ny, nx)

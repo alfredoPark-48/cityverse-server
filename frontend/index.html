@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CityVerse Traffic Simulation</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚥</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚥</text></svg>">
   <style>
     * {
       margin: 0;
@@ -266,12 +267,29 @@
       margin-top: 2px;
     }
 
-    .accent-blue { color: #38bdf8; }
-    .accent-green { color: #10b981; }
-    .accent-purple { color: #a855f7; }
-    .accent-orange { color: #f59e0b; }
-    .accent-red { color: #f43f5e; }
-    .accent-yellow { color: #eab308; }
+    .accent-blue {
+      color: #38bdf8;
+    }
+
+    .accent-green {
+      color: #10b981;
+    }
+
+    .accent-purple {
+      color: #a855f7;
+    }
+
+    .accent-orange {
+      color: #f59e0b;
+    }
+
+    .accent-red {
+      color: #f43f5e;
+    }
+
+    .accent-yellow {
+      color: #eab308;
+    }
 
     /* Grid */
     .grid-wrapper {
@@ -342,13 +360,11 @@
 
     .cell-crosswalk {
       background: #475569;
-      background-image: repeating-linear-gradient(
-        45deg,
-        transparent,
-        transparent 4px,
-        rgba(255, 255, 255, 0.1) 4px,
-        rgba(255, 255, 255, 0.1) 8px
-      );
+      background-image: repeating-linear-gradient(45deg,
+          transparent,
+          transparent 4px,
+          rgba(255, 255, 255, 0.1) 4px,
+          rgba(255, 255, 255, 0.1) 8px);
       border: 1px solid #64748b;
     }
 
@@ -368,7 +384,7 @@
       align-items: center;
       justify-content: center;
     }
-    
+
     .cell-angel::after {
       content: "👼";
       font-size: 10px;
@@ -381,7 +397,7 @@
       align-items: center;
       justify-content: center;
     }
-    
+
     .cell-parking::after {
       content: "P";
       font-size: 9px;
@@ -422,8 +438,15 @@
     }
 
     @keyframes waterPulse {
-      0%, 100% { opacity: 0.9; }
-      50% { opacity: 0.7; }
+
+      0%,
+      100% {
+        opacity: 0.9;
+      }
+
+      50% {
+        opacity: 0.7;
+      }
     }
 
     .cell-water::after {
@@ -481,7 +504,7 @@
       align-items: center;
       justify-content: center;
     }
-    
+
     .cell-bus-stop::after {
       content: "🚏";
       font-size: 10px;
@@ -539,7 +562,7 @@
       font-size: 13px;
     }
 
-    .cell-car-waiting, 
+    .cell-car-waiting,
     .cell-ped-waiting,
     .cell-bus-waiting-1,
     .cell-bus-waiting-2,
@@ -575,12 +598,54 @@
     }
 
     /* Route-specific Bus Styles */
-    .cell-bus-1 { background: #f43f5e !important; box-shadow: 0 0 12px #f43f5e; border-radius: 5px; border: 1px solid white; z-index: 11; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-2 { background: #a855f7 !important; box-shadow: 0 0 12px #a855f7; border-radius: 5px; border: 1px solid white; z-index: 11; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-3 { background: #10b981 !important; box-shadow: 0 0 12px #10b981; border-radius: 5px; border: 1px solid white; z-index: 11; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-4 { background: #eab308 !important; box-shadow: 0 0 12px #eab308; border-radius: 5px; border: 1px solid white; z-index: 11; display: flex; align-items: center; justify-content: center; }
+    .cell-bus-1 {
+      background: #f43f5e !important;
+      box-shadow: 0 0 12px #f43f5e;
+      border-radius: 5px;
+      border: 1px solid white;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-    .cell-bus-1::after, .cell-bus-2::after, .cell-bus-3::after, .cell-bus-4::after {
+    .cell-bus-2 {
+      background: #a855f7 !important;
+      box-shadow: 0 0 12px #a855f7;
+      border-radius: 5px;
+      border: 1px solid white;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-3 {
+      background: #10b981 !important;
+      box-shadow: 0 0 12px #10b981;
+      border-radius: 5px;
+      border: 1px solid white;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-4 {
+      background: #eab308 !important;
+      box-shadow: 0 0 12px #eab308;
+      border-radius: 5px;
+      border: 1px solid white;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-1::after,
+    .cell-bus-2::after,
+    .cell-bus-3::after,
+    .cell-bus-4::after {
       content: "🚌";
       position: absolute;
       top: 50%;
@@ -589,12 +654,54 @@
       font-size: 14px;
     }
 
-    .cell-bus-waiting-1 { background: #f43f5e !important; box-shadow: 0 0 20px #f43f5e; border: 2px solid white; border-radius: 5px; z-index: 11; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-waiting-2 { background: #a855f7 !important; box-shadow: 0 0 20px #a855f7; border: 2px solid white; border-radius: 5px; z-index: 11; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-waiting-3 { background: #10b981 !important; box-shadow: 0 0 20px #10b981; border: 2px solid white; border-radius: 5px; z-index: 11; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-waiting-4 { background: #eab308 !important; box-shadow: 0 0 20px #eab308; border: 2px solid white; border-radius: 5px; z-index: 11; display: flex; align-items: center; justify-content: center; }
+    .cell-bus-waiting-1 {
+      background: #f43f5e !important;
+      box-shadow: 0 0 20px #f43f5e;
+      border: 2px solid white;
+      border-radius: 5px;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-    .cell-bus-waiting-1::after, .cell-bus-waiting-2::after, .cell-bus-waiting-3::after, .cell-bus-waiting-4::after {
+    .cell-bus-waiting-2 {
+      background: #a855f7 !important;
+      box-shadow: 0 0 20px #a855f7;
+      border: 2px solid white;
+      border-radius: 5px;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-waiting-3 {
+      background: #10b981 !important;
+      box-shadow: 0 0 20px #10b981;
+      border: 2px solid white;
+      border-radius: 5px;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-waiting-4 {
+      background: #eab308 !important;
+      box-shadow: 0 0 20px #eab308;
+      border: 2px solid white;
+      border-radius: 5px;
+      z-index: 11;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-waiting-1::after,
+    .cell-bus-waiting-2::after,
+    .cell-bus-waiting-3::after,
+    .cell-bus-waiting-4::after {
       content: "🚌";
       position: absolute;
       top: 50%;
@@ -604,12 +711,46 @@
     }
 
     /* Route-specific Bus Stop Styles */
-    .cell-bus-stop-1 { background: #f43f5e; opacity: 0.8; border: 1px solid #fecdd3; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-stop-2 { background: #a855f7; opacity: 0.8; border: 1px solid #ddd6fe; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-stop-3 { background: #10b981; opacity: 0.8; border: 1px solid #a7f3d0; display: flex; align-items: center; justify-content: center; }
-    .cell-bus-stop-4 { background: #eab308; opacity: 0.8; border: 1px solid #fef08a; display: flex; align-items: center; justify-content: center; }
+    .cell-bus-stop-1 {
+      background: #f43f5e;
+      opacity: 0.8;
+      border: 1px solid #fecdd3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-    .cell-bus-stop-1::after, .cell-bus-stop-2::after, .cell-bus-stop-3::after, .cell-bus-stop-4::after {
+    .cell-bus-stop-2 {
+      background: #a855f7;
+      opacity: 0.8;
+      border: 1px solid #ddd6fe;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-stop-3 {
+      background: #10b981;
+      opacity: 0.8;
+      border: 1px solid #a7f3d0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-stop-4 {
+      background: #eab308;
+      opacity: 0.8;
+      border: 1px solid #fef08a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cell-bus-stop-1::after,
+    .cell-bus-stop-2::after,
+    .cell-bus-stop-3::after,
+    .cell-bus-stop-4::after {
       content: "🚏";
       font-size: 10px;
     }
@@ -670,8 +811,15 @@
     }
 
     @keyframes boardingScale {
-      from { transform: scale(1); opacity: 1; }
-      to { transform: scale(0.5); opacity: 0.5; }
+      from {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      to {
+        transform: scale(0.5);
+        opacity: 0.5;
+      }
     }
 
     /* Legend */
@@ -706,7 +854,7 @@
     }
 
     /* Legend specific icon overrides */
-    .legend .legend-swatch::after, 
+    .legend .legend-swatch::after,
     .legend .legend-swatch::before {
       font-size: 8px !important;
     }
@@ -818,10 +966,10 @@
         </div>
       </div>
       <div class="dash-card accent-blue">
-        <div class="dash-icon">⚠️</div>
+        <div class="dash-icon">💥</div>
         <div class="dash-content">
-          <div class="dash-value" id="nearMisses">0</div>
-          <div class="dash-label">Safety Events</div>
+          <div class="dash-value" id="crashCount">0</div>
+          <div class="dash-label">Crashes</div>
         </div>
       </div>
 
@@ -891,7 +1039,8 @@
         <span>Car (Moving)</span>
       </div>
       <div class="legend-item">
-        <div class="legend-swatch" style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div class="legend-swatch"
+          style="position: relative; display: flex; align-items: center; justify-content: center;">
           <div class="waiting-timer" style="animation: none; font-size: 12px; opacity: 0.5;">⏳</div>
           🚗
         </div>
@@ -906,7 +1055,8 @@
         <span>Pedestrian</span>
       </div>
       <div class="legend-item">
-        <div class="legend-swatch" style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div class="legend-swatch"
+          style="position: relative; display: flex; align-items: center; justify-content: center;">
           <div class="waiting-timer" style="animation: none; font-size: 12px; opacity: 0.5;">⏳</div>
           🧍‍♂️
         </div>
@@ -1177,13 +1327,13 @@
       if (stats.bus_occupancy !== undefined) document.getElementById("busOccupancy").textContent = stats.bus_occupancy;
       if (stats.total_passengers !== undefined) document.getElementById("totalPax").textContent = stats.total_passengers;
       if (stats.frustrated_peds !== undefined) document.getElementById("frustratedPeds").textContent = stats.frustrated_peds;
-      if (stats.near_misses !== undefined) document.getElementById("nearMisses").textContent = stats.near_misses;
-      
+      if (stats.crashes !== undefined) document.getElementById("crashCount").textContent = stats.crashes;
+
       // Old metrics integration
       if (stats.active_cars !== undefined) document.getElementById("carCount").textContent = stats.active_cars;
       if (stats.active_peds !== undefined) document.getElementById("pedCount").textContent = stats.active_peds;
       if (stats.parked_cars !== undefined && stats.parked_peds !== undefined) {
-          document.getElementById("parkedCount").textContent = stats.parked_cars + stats.parked_peds;
+        document.getElementById("parkedCount").textContent = stats.parked_cars + stats.parked_peds;
       }
     }
 

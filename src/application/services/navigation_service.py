@@ -64,16 +64,26 @@ class NavigationService:
         for b in blockers:
             b_type = type(b).__name__
             if b_type == "Traffic_Light":
-                if not getattr(b, "state", True): # Red light
-                    # Can't enter if it's red, unless we're already "inside"
-                    if not is_already_in_intersection:
+                light_state = getattr(b, "state", True)
+                if agent_type == "Pedestrian":
+                    # Pedestrians are blocked if the light is green for cars
+                    if light_state:
                         return True
+                else: # Car or Bus
+                    # Vehicles are blocked if the light is red, unless already clearing the intersection
+                    if not light_state:
+                        if not is_already_in_intersection:
+                            return True
             elif b_type == "PedestrianCrossing":
                 if getattr(b, "state", None) not in [None, agent_type]:
                     return True
-            elif b_type in ["Car", "Bus", "Pedestrian"]:
+            elif b_type == "Pedestrian":
+                # Pedestrians only block vehicles, not other pedestrians
+                if agent_type != "Pedestrian":
+                    return True
+            elif b_type in ["Car", "Bus"]:
                 return True
-            elif b_type in ["Angel", "Parking", "CarSpawn"]:
+            elif b_type in ["Angel", "Parking", "CarSpawn", "SideWalk", "Home", "PedestrianSpawn", "Destination"]:
                 continue
             else:
                 return True # Buildings, etc.

@@ -14,6 +14,7 @@ class BaseTrafficAgent(Agent, ABC):
         self.has_arrived = False
         self.direction = "None"
         self.previous_pos = None
+        self.wait_ticks = 0
 
     @abstractmethod
     def calculate_path(self):

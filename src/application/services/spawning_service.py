@@ -34,6 +34,13 @@ class SpawningService:
                 destpos = model.random.choice(model.destinys_temp)
                 a = Pedestrian(str(uuid.uuid4()), model, destpos)
                 pos = model.random.choice(spawn_pool)
+                
+                # Check for space (minor optimization to avoid immediate overlaps)
+                attempts = 3
+                while any(type(ag).__name__ == "Pedestrian" for ag in model.grid.get_cell_list_contents(pos)) and attempts > 0:
+                    pos = model.random.choice(spawn_pool)
+                    attempts -= 1
+                
                 model.schedule.add(a)
                 model.grid.place_agent(a, pos)
 
