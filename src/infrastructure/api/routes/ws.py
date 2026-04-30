@@ -2,6 +2,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 import asyncio
 import logging
 import json
+from src.shared.responses import ApiResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -25,15 +26,18 @@ async def websocket_endpoint(websocket: WebSocket):
         try:
             while True:
                 if playing:
-                    state = sim.step()
+                    # Advance simulation
+                    sim.step()
                     # After initial sync, we don't need to send the grid every time
-                    # unless explicitly requested or during a reset.
-                    # For simplicity in this refactor, we exclude grid from stream frames.
                     frame = sim._model.get_state_snapshot(include_grid=False)
                     await websocket.send_json(frame)
                     
                     if not frame["running"]:
                         playing = False
+                        await websocket.send_json(ApiResponse.ok(
+                            message="Simulation completed",
+                            code="SIM_COMPLETED"
+                        ).model_dump())
                 
                 await asyncio.sleep(tick_delay)
         except Exception as e:
@@ -53,24 +57,58 @@ async def websocket_endpoint(websocket: WebSocket):
             if cmd_type == "play":
                 playing = True
                 logger.info("Simulation started via WS")
+                await websocket.send_json(ApiResponse.ok(
+                    message="Simulation started",
+                    code="SIM_STARTED"
+                ).model_dump())
             elif cmd_type == "pause":
                 playing = False
                 logger.info("Simulation paused via WS")
+                await websocket.send_json(ApiResponse.ok(
+                    message="Simulation paused",
+                    code="SIM_PAUSED"
+                ).model_dump())
             elif cmd_type == "step":
                 playing = False
-                state = sim.step()
+                sim.step()
                 await websocket.send_json(sim._model.get_state_snapshot(include_grid=False))
+                await websocket.send_json(ApiResponse.ok(
+                    message="Step executed",
+                    code="SIM_STEPPED"
+                ).model_dump())
             elif cmd_type == "reset":
                 playing = False
                 state = sim.reset()
                 # On reset, send full state including grid
                 await websocket.send_json(state)
+                await websocket.send_json(ApiResponse.ok(
+                    message="Simulation reset to initial state",
+                    code="SIM_RESET"
+                ).model_dump())
             elif cmd_type == "set_speed":
-                tick_delay = command.get("value", 300) / 1000.0
+                speed_ms = command.get("value", 300)
+                tick_delay = speed_ms / 1000.0
+                await websocket.send_json(ApiResponse.ok(
+                    message=f"Speed set to {speed_ms}ms per tick",
+                    code="SIM_SPEED_CHANGED",
+                    data={"speed": speed_ms}
+                ).model_dump())
             elif cmd_type == "update_config":
-                sim.set_config(command.get("config", {}))
-                # Optionally send back new config to confirm
-                await websocket.send_json({"type": "config_updated", "config": sim.get_config()})
+                try:
+                    sim.set_config(command.get("config", {}))
+                    await websocket.send_json({
+                        "type": "config_updated", 
+                        "config": sim.get_config()
+                    })
+                    await websocket.send_json(ApiResponse.ok(
+                        message="Configuration updated and applied",
+                        code="CONFIG_UPDATED"
+                    ).model_dump())
+                except Exception as e:
+                    await websocket.send_json(ApiResponse.error(
+                        message=f"Failed to update config: {str(e)}",
+                        code="CONFIG_UPDATE_ERROR"
+                    ).model_dump())
                 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")

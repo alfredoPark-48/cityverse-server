@@ -1,36 +1,44 @@
 from fastapi import APIRouter, HTTPException
 import logging
+from src.shared.responses import ApiResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/config")
-async def get_config() -> dict:
+@router.get("/config", response_model=ApiResponse)
+async def get_config() -> ApiResponse:
     """Return simulation configuration."""
     from src.infrastructure.api.main import get_simulation
     try:
         sim = get_simulation()
-        return sim.get_config()
+        data = sim.get_config()
+        return ApiResponse.ok(data=data)
     except Exception as e:
         logger.error(f"Error fetching config: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve simulation config")
+        return ApiResponse.error(
+            message="Failed to retrieve simulation config",
+            code="CONFIG_FETCH_FAILED"
+        )
 
 
-@router.post("/config")
-async def update_config(config: dict) -> dict:
+@router.post("/config", response_model=ApiResponse)
+async def update_config(config: dict) -> ApiResponse:
     """Update simulation configuration."""
     from src.infrastructure.api.main import get_simulation
     try:
         sim = get_simulation()
-        # Debugging the AttributeError
-        print(f"DEBUG: sim object type: {type(sim)}")
-        print(f"DEBUG: has set_config: {hasattr(sim, 'set_config')}")
-        
         sim.set_config(config)
-        return {"status": "success", "config": sim.get_config()}
+        return ApiResponse.ok(
+            data=sim.get_config(),
+            message="Configuration updated successfully",
+            code="CONFIG_UPDATE_SUCCESS"
+        )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return ApiResponse.error(message=str(e), code="CONFIG_INVALID_VALUES")
     except Exception as e:
         logger.error(f"Error updating config: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update simulation config")
+        return ApiResponse.error(
+            message="Failed to update simulation config",
+            code="CONFIG_UPDATE_FAILED"
+        )
