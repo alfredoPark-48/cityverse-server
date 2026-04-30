@@ -14,7 +14,6 @@ This project is a refactored and significantly improved version of the original 
 5. [Data Structures & Algorithms](./doc/ALGORITHMS.md)
 6. [Legacy Comparison](./doc/LEGACY_COMPARISON.md)
 7. [Key Features](#-key-features)
-8. [Roadmap](#-roadmap)
 
 ---
 
@@ -36,7 +35,7 @@ CityVerse evolved from a research prototype into a robust simulation engine. The
 - Python 3.10+
 - Docker & Docker Compose
 
-### Installation
+### Local Installation
 ```bash
 # Clone the repository
 git clone https://github.com/alfredoPark-48/cityverse-server.git
@@ -48,6 +47,18 @@ pip install -r requirements.txt
 # Start the simulation server
 python run.py
 ```
+
+### Docker Execution
+For a consistent and isolated environment, you can run the entire system using Docker Compose:
+
+```bash
+# Build and start the containers
+docker compose up --build
+
+# To run in the background
+docker compose up -d
+```
+The simulation API will be available at `http://localhost:8000`.
 
 ---
 
@@ -61,14 +72,3 @@ The simulation builds two distinct directed graphs (Road and Pedestrian) from a 
 
 ### 3. Real-Time Metrics & Analytics
 The simulation exposes a standardized API for front-end consumption, providing live stats on agent frustration, bus occupancy, and trip completion rates.
-
----
-
-## 🛣 Roadmap
-- [ ] **AI Traffic Control**: Reinforcement learning for adaptive traffic light cycles.
-- [ ] **Weather & Environmental Factors**: Impacting agent visibility and speed.
-- [ ] **Emission Tracking**: Modeling the environmental impact of urban traffic.
-
----
-
-> **Note**: This repository follows clean code practices and modular design patterns to provide a scalable foundation for urban mobility research.
