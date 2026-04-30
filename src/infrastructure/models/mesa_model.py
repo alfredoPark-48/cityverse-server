@@ -42,6 +42,11 @@ class CityModel(Model):
         # Initialize grid and schedule
         with open(self.grid_file) as f:
             lines = f.readlines()
+        
+        # CACHE GRID: Read once and store in memory
+        self._grid_cache = [list(line.strip()) for line in lines]
+        self._grid_cache.reverse() # Align with Mesa's coordinate system
+        
         self.width = len(lines[0].strip())
         self.height = len(lines)
         self.grid = MultiGrid(self.width, self.height, torus=False)
@@ -192,7 +197,7 @@ class CityModel(Model):
             self.regenerate_agents = bool(config["regenerate_agents"])
         self.replenish_agents()
 
-    def get_state_snapshot(self) -> dict:
+    def get_state_snapshot(self, include_grid: bool = True) -> dict:
         """Returns a snapshot of the simulation state for the frontend."""
         agents_data = []
         lights_data = []
@@ -208,12 +213,6 @@ class CityModel(Model):
                         "has_arrived": agent.has_arrived,
                         "parked": agent.has_arrived,
                         "waiting": not agent.is_moving,
-                        "destination": {
-                            "x": agent.destination[0],
-                            "y": agent.destination[1],
-                        }
-                        if agent.destination
-                        else None,
                     }
                 )
             elif isinstance(agent, Pedestrian):
@@ -224,10 +223,8 @@ class CityModel(Model):
                         "y": agent.pos[1] if agent.pos else -1,
                         "type": "PedestrianAgent",
                         "has_arrived": agent.has_arrived,
-                        "crossing": False,
                         "waiting": not agent.is_moving,
                         "is_boarding": getattr(agent, "is_boarding", False),
-                        "despawned": agent.has_arrived,
                     }
                 )
             elif isinstance(agent, Bus):
@@ -240,7 +237,6 @@ class CityModel(Model):
                         "waiting": not agent.is_moving,
                         "passenger_count": len(agent.passengers),
                         "route_id": agent.route_id,
-                        "route_index": agent.current_stop_index,
                     }
                 )
             elif isinstance(agent, Traffic_Light):
@@ -249,15 +245,10 @@ class CityModel(Model):
                         "id": agent.unique_id,
                         "x": agent.pos[0] if agent.pos else -1,
                         "y": agent.pos[1] if agent.pos else -1,
-                        "direction": "N",
                         "state": "green" if agent.state else "red",
                         "timer": agent.timeToChange,
                     }
                 )
-
-        with open(self.grid_file) as f:
-            grid_lines = [list(line.strip()) for line in f.readlines()]
-            grid_lines.reverse()
 
         active_buses = [a for a in self.schedule.agents if isinstance(a, Bus)]
         avg_occ = (
@@ -267,14 +258,11 @@ class CityModel(Model):
         )
         self.metrics["avg_bus_occupancy"] = round(avg_occ, 1)
 
-        return {
+        snapshot = {
             "tick": self.schedule.steps,
             "running": self.running,
             "agents": agents_data,
             "traffic_lights": lights_data,
-            "grid_width": self.width,
-            "grid_height": self.height,
-            "grid": grid_lines,
             "stats": {
                 "active_cars": len(
                     [a for a in self.schedule.agents if isinstance(a, Car)]
@@ -294,3 +282,13 @@ class CityModel(Model):
                 "safety_retreats": self.metrics["safety_retreats"],
             },
         }
+
+        if include_grid:
+            snapshot.update({
+                "grid_width": self.width,
+                "grid_height": self.height,
+                "grid": self._grid_cache,
+            })
+
+        return snapshot
+
