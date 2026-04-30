@@ -1,6 +1,6 @@
-# 🌆 CityVerse Server
+# 🌆 CityCommute Server
 
-CityVerse is a high-fidelity urban mobility simulation built with **Python** and **Mesa**. It models complex interactions between cars, pedestrians, and public transport in a dynamic, data-driven city environment.
+CityCommute is a high-fidelity urban mobility simulation built with **Python** and **Mesa**. It models complex interactions between cars, pedestrians, and public transport in a dynamic, data-driven city environment, with a specific focus on work commute patterns.
 
 This project is a refactored and significantly improved version of the original [Project-Multiagentes](https://github.com/ivalani/Project-Multiagentes).
 
@@ -19,7 +19,7 @@ This project is a refactored and significantly improved version of the original 
 
 ## 🚀 Project Overview
 
-CityVerse evolved from a research prototype into a robust simulation engine. The primary focus of this version is **system stability**, **architectural clarity**, and **algorithmic efficiency**.
+CityCommute evolved from a research prototype into a robust simulation engine. The primary focus of this version is **system stability**, **architectural clarity**, and **algorithmic efficiency**.
 
 ### Core Improvements
 - **Clean Architecture**: Transitioned to a decoupled 3-tier architecture (Domain, Application, Infrastructure) for better maintainability.
@@ -38,8 +38,8 @@ CityVerse evolved from a research prototype into a robust simulation engine. The
 ### Local Installation
 ```bash
 # Clone the repository
-git clone https://github.com/alfredoPark-48/cityverse-server.git
-cd cityverse-server
+git clone https://github.com/alfredoPark-48/citycommute-server.git
+cd citycommute-server
 
 # Install dependencies
 pip install -r requirements.txt
@@ -71,4 +71,4 @@ Pedestrians dynamically evaluate the efficiency of the public transport network.
 The simulation builds two distinct directed graphs (Road and Pedestrian) from a plain-text grid. This ensures vehicles respect one-way constraints and pedestrians stay on designated sidewalks.
 
 ### 3. Real-Time Metrics & Analytics
-The simulation exposes a standardized API for front-end consumption, providing live stats on agent frustration, bus occupancy, and trip completion rates.
+The simulation exposes a standardized API and WebSocket stream for [CityCommute Client](https://github.com/alfredoPark-48/citycommute-client), providing live stats on agent frustration, bus occupancy, and trip completion rates.
