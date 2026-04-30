@@ -19,6 +19,7 @@ from .traffic_components import (
 from .car import Car
 from .bus import Bus
 from .pedestrian import Pedestrian
+from .base import BaseTrafficAgent
 
 __all__ = [
     "Traffic_Light",
@@ -38,4 +39,5 @@ __all__ = [
     "Car",
     "Bus",
     "Pedestrian",
+    "BaseTrafficAgent",
 ]
