@@ -134,6 +134,14 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 24px;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .settings-panel.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-20px);
+      margin-bottom: -150px; /* Collapse space */
     }
 
     .setting-group {
@@ -938,14 +946,14 @@
           <span>Target Cars</span>
           <span id="carTargetVal">30</span>
         </div>
-        <input type="range" id="carTarget" class="setting-input" min="0" max="100" value="30" step="5" />
+        <input type="range" id="carTarget" class="setting-input" min="30" max="100" value="30" step="5" />
       </div>
       <div class="setting-group">
         <div class="setting-label">
           <span>Target Pedestrians</span>
           <span id="pedTargetVal">30</span>
         </div>
-        <input type="range" id="pedTarget" class="setting-input" min="0" max="250" value="30" step="10" />
+        <input type="range" id="pedTarget" class="setting-input" min="30" max="250" value="30" step="10" />
       </div>
       <div class="setting-group">
         <div class="setting-label">
@@ -1227,6 +1235,7 @@
         const stats = await apiGet("/stats");
         renderStats(stats);
         await fetchConfig(); // Refresh limits
+        document.querySelector(".settings-panel").classList.remove("hidden");
       } catch (err) {
         // Error handled by apiFetch
       }
@@ -1340,6 +1349,7 @@
     function startPlaying() {
       playing = true;
       document.getElementById("playBtn").classList.add("active");
+      document.querySelector(".settings-panel").classList.add("hidden");
       playLoop();
     }
 
@@ -1413,6 +1423,7 @@
     // Event listeners
     document.getElementById("stepBtn").addEventListener("click", async () => {
       stopPlaying();
+      document.querySelector(".settings-panel").classList.add("hidden");
       await doStep();
     });
 

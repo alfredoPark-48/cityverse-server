@@ -18,7 +18,13 @@ class CityModel(Model):
     Core simulation model orchestrating agents and environment.
     """
 
-    def __init__(self, grid_file: str | None = None) -> None:
+    def __init__(
+        self,
+        grid_file: str | None = None,
+        target_cars: int = 30,
+        target_peds: int = 30,
+        target_buses: int = 4,
+    ) -> None:
         super().__init__()
         self.grid_file = grid_file or GRID_FILE_PATH
 
@@ -59,9 +65,9 @@ class CityModel(Model):
         self.bus_routes = self._load_bus_routes()
 
         # Simulation Settings
-        self.target_cars = 30
-        self.target_peds = 30
-        self.target_buses = 4
+        self.target_cars = target_cars
+        self.target_peds = target_peds
+        self.target_buses = target_buses
         self.max_cars, self.max_peds, self.max_buses = 100, 250, 16
 
         # Statistics & Metrics
@@ -98,7 +104,6 @@ class CityModel(Model):
 
         self.schedule.step()
         self._calculate_crashes()
-        self.replenish_agents()
 
     def _calculate_crashes(self):
         """Monitors vehicle collisions."""
@@ -167,6 +172,7 @@ class CityModel(Model):
                     key,
                     min(int(config[key]), getattr(self, f"max_{key.split('_')[1]}")),
                 )
+        self.replenish_agents()
 
     def get_state_snapshot(self) -> dict:
         """Returns a snapshot of the simulation state for the frontend."""

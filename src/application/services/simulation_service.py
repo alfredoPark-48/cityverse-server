@@ -24,8 +24,13 @@ class SimulationService:
         return self._model.get_state_snapshot()
 
     def reset(self) -> dict:
-        """Reinitialise the simulation from scratch."""
-        self._model = CityModel()
+        """Reinitialise the simulation from scratch, preserving current config."""
+        config = self._model.get_config()
+        self._model = CityModel(
+            target_cars=config["target_cars"],
+            target_peds=config["target_peds"],
+            target_buses=config["target_buses"]
+        )
         return self._model.get_state_snapshot()
 
     def get_stats(self) -> dict:

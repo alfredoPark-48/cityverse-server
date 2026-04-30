@@ -3,6 +3,7 @@
 from src.domain.entities.base import BaseTrafficAgent
 from src.application.services.navigation_service import NavigationService
 from src.domain.entities.traffic_components import SideWalk, Traffic_Light, PedestrianCrossing, Building, Vegetation, Water, Parking, Lot, Home
+from src.shared.config import BUS_WAIT_PENALTY, BUS_TRAVEL_COST_PER_STOP, MIN_WALK_DISTANCE_FOR_BUS
 
 class Pedestrian(BaseTrafficAgent):
     """
@@ -22,35 +23,72 @@ class Pedestrian(BaseTrafficAgent):
         self.gave_up_on_bus = False
 
     def check_bus_efficiency(self):
-        """Logic to decide if a bus is worth taking."""
+        """
+        Calculates if taking a bus is more efficient than walking.
+        
+        The decision is based on a cost model:
+        Cost = WalkingToStop + WaitPenalty + (StopsNeeded * TravelCostPerStop) + WalkingFromStop
+        """
         if not self.pos or self.gave_up_on_bus:
             return False
             
-        walk_dist = abs(self.pos[0] - self.destination[0]) + abs(self.pos[1] - self.destination[1])
-        if walk_dist < 15:
+        # 1. Base walking distance (Manhattan)
+        total_walk_dist = abs(self.pos[0] - self.destination[0]) + abs(self.pos[1] - self.destination[1])
+        
+        # Short distances are always faster on foot
+        if total_walk_dist < MIN_WALK_DISTANCE_FOR_BUS:
             return False
 
+        # Cost weights
+        WALK_COST_WEIGHT = 1.0
+        
         best_stop = None
-        min_total_walk = walk_dist
+        min_total_cost = total_walk_dist * WALK_COST_WEIGHT
 
+        # 2. Evaluate all available bus routes
         for rid, stops in self.model.bus_routes.items():
-            if not stops: continue
+            if len(stops) < 2:
+                continue
             
-            n_start = min(stops, key=lambda s: abs(s[0] - self.pos[0]) + abs(s[1] - self.pos[1]))
-            d_start = abs(n_start[0] - self.pos[0]) + abs(n_start[1] - self.pos[1])
-            
-            n_end = min(stops, key=lambda s: abs(s[0] - self.destination[0]) + abs(s[1] - self.destination[1]))
-            d_end = abs(n_end[0] - self.destination[0]) + abs(n_end[1] - self.destination[1])
-            
-            if d_start + d_end < walk_dist * 0.7:
-                if d_start + d_end < min_total_walk:
-                    min_total_walk = d_start + d_end
-                    best_stop = n_start
+            # Find nearest stop to current position
+            idx_start, d_start = self._find_nearest_stop(self.pos, stops)
+            # Find nearest stop to destination
+            idx_end, d_end = self._find_nearest_stop(self.destination, stops)
+
+            if idx_start != -1 and idx_end != -1:
+                # Calculate stops needed on a circular route
+                stops_needed = (idx_end - idx_start) % len(stops)
+                
+                # If stops_needed is 0, it means the nearest stop to start and end is the same
+                if stops_needed == 0:
+                    continue
+
+                # Calculate estimated trip cost
+                bus_trip_cost = (d_start * WALK_COST_WEIGHT) + \
+                                BUS_WAIT_PENALTY + \
+                                (stops_needed * BUS_TRAVEL_COST_PER_STOP) + \
+                                (d_end * WALK_COST_WEIGHT)
+                
+                # 3. Decision: Is bus cheaper than current best?
+                if bus_trip_cost < min_total_cost:
+                    min_total_cost = bus_trip_cost
+                    best_stop = stops[idx_start]
 
         if best_stop:
             self.target_bus_stop = best_stop
             return True
         return False
+
+    def _find_nearest_stop(self, target_pos, stops):
+        """Helper to find the index and distance of the nearest stop to a position."""
+        best_idx = -1
+        min_dist = float('inf')
+        for i, stop in enumerate(stops):
+            d = abs(stop[0] - target_pos[0]) + abs(stop[1] - target_pos[1])
+            if d < min_dist:
+                min_dist = d
+                best_idx = i
+        return best_idx, min_dist
 
     def calculate_path(self):
         if not self.efficiency_checked:
