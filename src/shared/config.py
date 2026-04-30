@@ -1,6 +1,9 @@
 """Application configuration constants."""
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 GRID_FILE_PATH: str = os.getenv("GRID_FILE", "data/city.txt")
 BUS_ROUTES_FILE_PATH: str = os.getenv("BUS_ROUTES_FILE", "data/bus_routes.json")
