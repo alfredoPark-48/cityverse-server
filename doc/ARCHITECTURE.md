@@ -1,36 +1,41 @@
-# CityVerse Architecture
+# CityVerse: Architectural Blueprint
 
-This document describes the architectural patterns and design principles used in the CityVerse Server.
+This document outlines the design decisions and architectural patterns used in the CityVerse Server.
 
 ## 1. Clean Architecture Layers
 
+CityVerse follows a 3-tier architecture to ensure a clear separation of concerns between core logic, application orchestration, and infrastructure details.
+
 ### Domain Layer (`src/domain`)
-The heart of the application. Contains business entities and core rules.
-- **Entities**: `Car`, `Pedestrian`, `Bus`. These encapsulate state and high-level behaviors.
-- **Value Objects**: Shared data structures like positions and directions.
-- **Base Classes**: `BaseTrafficAgent` provides a template for all moving agents.
+- **Core Entities**: `Car`, `Pedestrian`, and `Bus` inherit from a unified `BaseTrafficAgent`.
+- **State Management**: Agents maintain their own internal state (e.g., `on_bus`, `is_boarding`, `has_arrived`).
 
 ### Application Layer (`src/application`)
-Orchestrates the flow of data to and from the domain.
-- **Services**: `NavigationService` (pathfinding), `SpawningService` (population management), `GraphService` (network topology).
-- **Orchestration**: `SimulationService` acts as the primary API for external layers (Infrastructure).
+- **Services**: 
+    - `NavigationService`: Centralizes pathfinding logic using A*.
+    - `SpawningService`: Manages the lifecycle and replenishment of agents.
+    - `GraphService`: Transforms grid data into a traversable directed graph.
 
 ### Infrastructure Layer (`src/infrastructure`)
-Handles technical details and external integrations.
-- **Mesa Model**: `CityModel` implements the actual simulation loop using the Mesa framework.
-- **Persistence**: `GridLoader` handles file I/O for grid maps and map dictionaries.
-- **API**: (In progress) Flask/SocketIO endpoints for frontend communication.
+- **Framework Integration**: Encapsulates the Mesa simulation engine.
+- **Persistence**: Handles file I/O for the city grid (`city.txt`) and configuration.
 
-## 2. Design Principles (SOLID)
+---
 
-- **Single Responsibility (SRP)**: Each service has a specific role. `GridLoader` only parses files; `NavigationService` only handles movement logic.
-- **Open/Closed (OCP)**: New agent types can be added by inheriting from `BaseTrafficAgent` without modifying the core simulation loop.
-- **Liskov Substitution (LSP)**: All traffic agents can be handled interchangeably by the simulation schedule.
-- **Interface Segregation (ISP)**: Services are modular and only expose necessary methods.
-- **Dependency Inversion (DIP)**: High-level application logic depends on abstractions (Base classes and Service interfaces) rather than concrete Mesa implementations where possible.
+## 2. Key Design Decisions
 
-## 3. Design Patterns
+### Navigation Fallback Strategy
+To ensure system stability, the `NavigationService` implements a fallback mechanism. Before pathfinding, the system uses a Breadth-First Search (BFS) to identify the reachable subgraph. If a target is topologically isolated, the agent dynamically re-routes to the closest reachable node to its destination.
 
-- **Strategy Pattern**: Pathfinding algorithms are encapsulated in `NavigationService`, allowing for easy swapping (e.g., from A* to BFS).
-- **Template Method**: `BaseTrafficAgent.step()` defines the skeleton of an agent's turn, while subclasses implement specific `move()` and `calculate_path()` logic.
-- **Factory/Loader**: `GridLoader` acts as a factory for initializing the city grid from static files.
+### Multimodal State Machine
+The pedestrian lifecycle is managed via a state machine that handles transitions between walking and public transport. When a pedestrian boards a bus, they are removed from the spatial index to prevent collisions but remain in the schedule to track their internal metrics.
+
+### Collision Reservation System
+CityVerse uses a reservation-based logic during the movement phase. Agents check if their intended next move is already occupied or reserved by a higher-priority agent (e.g., a Bus), preventing overlapping in discrete grid space.
+
+---
+
+## 3. Design Principles
+- **Single Responsibility (SRP)**: Each service (e.g., `GridLoader`) has a single, well-defined role.
+- **Open/Closed (OCP)**: New agent types or transport modes can be added by extending the `BaseTrafficAgent` without modifying the core simulation loop.
+- **Dependency Inversion (DIP)**: High-level application logic depends on service abstractions rather than the specific details of the Mesa framework.
