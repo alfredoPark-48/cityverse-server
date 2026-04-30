@@ -16,11 +16,11 @@ async def reset_simulation() -> ApiResponse:
         return ApiResponse.ok(
             data=data, 
             message="Simulation reset successfully", 
-            code="SIM_RESET_SUCCESS"
+            code="SIMULATION:RESET:SUCCESS"
         )
     except Exception as e:
         logger.error(f"Error resetting simulation: {e}")
         return ApiResponse.error(
             message=f"Failed to reset simulation: {str(e)}",
-            code="SIM_RESET_FAILED"
+            code="SIMULATION:RESET:ERROR"
         )

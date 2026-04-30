@@ -18,7 +18,7 @@ async def get_config() -> ApiResponse:
         logger.error(f"Error fetching config: {e}")
         return ApiResponse.error(
             message="Failed to retrieve simulation config",
-            code="CONFIG_FETCH_FAILED"
+            code="CONFIG:FETCH:ERROR"
         )
 
 
@@ -32,13 +32,13 @@ async def update_config(config: dict) -> ApiResponse:
         return ApiResponse.ok(
             data=sim.get_config(),
             message="Configuration updated successfully",
-            code="CONFIG_UPDATE_SUCCESS"
+            code="CONFIG:UPDATE:SUCCESS"
         )
     except ValueError as e:
-        return ApiResponse.error(message=str(e), code="CONFIG_INVALID_VALUES")
+        return ApiResponse.error(message=str(e), code="CONFIG:VALIDATION:ERROR")
     except Exception as e:
         logger.error(f"Error updating config: {e}")
         return ApiResponse.error(
             message="Failed to update simulation config",
-            code="CONFIG_UPDATE_FAILED"
+            code="CONFIG:UPDATE:ERROR"
         )

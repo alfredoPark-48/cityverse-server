@@ -13,10 +13,10 @@ async def get_stats() -> ApiResponse:
     try:
         sim = get_simulation()
         data = sim.get_stats()
-        return ApiResponse.ok(data=data)
+        return ApiResponse.ok(data=data, code="STATS:FETCH:SUCCESS")
     except Exception as e:
         logger.error(f"Error fetching stats: {e}")
         return ApiResponse.error(
             message="Failed to retrieve simulation statistics",
-            code="STATS_FETCH_FAILED"
+            code="STATS:FETCH:ERROR"
         )

@@ -16,11 +16,11 @@ async def step_simulation() -> ApiResponse:
         return ApiResponse.ok(
             data=data,
             message="Simulation stepped successfully",
-            code="SIM_STEP_SUCCESS"
+            code="SIMULATION:STEP:SUCCESS"
         )
     except Exception as e:
         logger.error(f"Error stepping simulation: {e}")
         return ApiResponse.error(
             message="Failed to advance simulation step",
-            code="SIM_STEP_FAILED"
+            code="SIMULATION:STEP:ERROR"
         )

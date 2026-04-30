@@ -13,4 +13,4 @@ async def get_state() -> ApiResponse:
 
     sim = get_simulation()
     data = sim.get_state()
-    return ApiResponse.ok(data=data)
+    return ApiResponse.ok(data=data, code="STATE:FETCH:SUCCESS")
