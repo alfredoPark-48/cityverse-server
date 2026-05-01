@@ -264,6 +264,7 @@ class CityModel(Model):
             "agents": agents_data,
             "traffic_lights": lights_data,
             "stats": {
+                "tick": self.schedule.steps,
                 "active_cars": len(
                     [a for a in self.schedule.agents if isinstance(a, Car)]
                 ),
